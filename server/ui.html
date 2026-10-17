@@ -112,6 +112,11 @@
   .older { text-align: center; color: var(--muted); font-size: 12px; padding: 6px; }
   .status { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); background: var(--panel); min-height: 34px; }
   .full .status { justify-content: center; padding: 10px 16px; font-size: 13.5px; }
+  .say { display: flex; gap: 8px; align-items: flex-end; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel); }
+  .say textarea { flex: 1; resize: none; min-height: 36px; max-height: 160px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; line-height: 1.4; }
+  .say textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .say .btn { flex: none; }
+  .say .err { color: var(--err); font-size: 12px; align-self: center; }
   .status .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status.waiting { color: var(--err); font-weight: 600; }
   .jump { position: absolute; bottom: 46px; left: 50%; transform: translateX(-50%); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 4px 12px; cursor: pointer; font-size: 12.5px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
@@ -499,6 +504,8 @@
       pluginOk: v => `Squadra plugin ${v ? `v${v}` : 'installed'}`,
       pluginMissing: missing => `⚠ Squadra plugin ${missing ? 'not installed' : 'disabled'}: run <code>squadra-host plugin</code> on the machine`,
       terminal: '⌨ Terminal',
+      sayPlaceholder: 'Write to Claude in this session… (Enter sends, Shift+Enter: new line)',
+      saySend: 'Send',
       chat: 'Chat',
       closeSession: 'Close session',
       closeSessionTitle: n => `Close ${n}`,
@@ -684,6 +691,8 @@
       pluginOk: v => `Plugin de Squadra ${v ? `v${v}` : 'instalado'}`,
       pluginMissing: missing => `⚠ Plugin de Squadra ${missing ? 'sin instalar' : 'desactivado'}: ejecuta <code>squadra-host plugin</code> en la máquina`,
       terminal: '⌨ Terminal',
+      sayPlaceholder: 'Escribe a Claude en esta sesión… (Enter envía, Mayús+Enter: nueva línea)',
+      saySend: 'Enviar',
       chat: 'Chat',
       closeSession: 'Cerrar sesión',
       closeSessionTitle: n => `Cerrar ${n}`,
@@ -869,8 +878,31 @@
       this.openGroups = new Map() // group key -> user choice
       this.el = document.createElement('div')
       this.el.className = 'chat'
-      this.el.innerHTML = `<div class="scroll"><div class="items"></div></div><button class="jump" hidden>${T.jump(0)}</button><div class="status"><span class="dot"></span><span class="txt"></span></div>`
+      this.el.innerHTML = `<div class="scroll"><div class="items"></div></div><button class="jump" hidden>${T.jump(0)}</button><div class="status"><span class="dot"></span><span class="txt"></span></div><form class="say" hidden><textarea rows="1" placeholder="${esc(T.sayPlaceholder)}"></textarea><span class="err"></span><button class="btn primary" type="submit">${T.saySend}</button></form>`
       this.scrollEl = this.el.querySelector('.scroll')
+      this.sayEl = this.el.querySelector('.say')
+      const box = this.sayEl.querySelector('textarea')
+      const grow = () => { box.style.height = 'auto'; box.style.height = `${Math.min(box.scrollHeight, 160)}px` }
+      box.addEventListener('input', grow)
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); this.sayEl.requestSubmit() }
+      })
+      this.sayEl.addEventListener('submit', async e => {
+        e.preventDefault()
+        const where = terminalOf(this.name)
+        const text = box.value
+        if (!where || !text.trim()) return
+        const btn = this.sayEl.querySelector('button')
+        const err = this.sayEl.querySelector('.err')
+        btn.disabled = true
+        err.textContent = ''
+        try {
+          await postJson('/api/terminals/say', { host: where.host.id, term: this.name, text })
+          box.value = ''
+          grow()
+          this.toBottom()
+        } catch (ex) { err.textContent = ex.message } finally { btn.disabled = false; box.focus() }
+      })
       this.itemsEl = this.el.querySelector('.items')
       this.jumpEl = this.el.querySelector('.jump')
       this.scrollEl.addEventListener('scroll', () => this.onScroll())
@@ -1047,6 +1079,10 @@
     }
 
     renderStatus() {
+      // The chat box, only for sessions opened by squadra-host on a machine
+      // that lets the dashboard type.
+      const where = terminalOf(this.name)
+      this.sayEl.hidden = !(where && where.host.info?.allow_input === true)
       const s = sessions.get(this.name)
       const st = status(s)
       const bar = this.el.querySelector('.status')

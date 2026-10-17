@@ -85,6 +85,7 @@ Cada agente es un `claude` interactivo normal en un terminal, así que puedes in
 - **Sesiones abiertas desde el panel.**
   - Añade una máquina con un comando, generado por el panel, que instala y da de alta `squadra-host` en ella.
   - Abre allí coordinadores y workers desde el navegador y usa sus terminales en directo: ves a Claude y, en las máquinas que lo permitan (`allow_input: true`), le escribes, aceptas sus diálogos e incluso haces `/login` con la suscripción de esa máquina.
+  - O escríbele a Claude desde la vista de chat de la sesión: una caja bajo el chat teclea tu mensaje en esa sesión, como si lo escribieras en su terminal (mismo interruptor `allow_input`).
   - La máquina solo acepta una *especificación* de sesión (nombre, rol, una carpeta permitida y la ventana de autocompactación), nunca un comando; sus límites viven en la propia máquina.
   - Las sesiones solo las abres tú, nunca Claude: si un coordinador necesita más workers, te los pide.
 

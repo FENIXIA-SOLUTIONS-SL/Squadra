@@ -1134,6 +1134,7 @@ const dashboardActions = {
   'hosts/remove': p => removeHost(String(p.host ?? '')),
   'terminals/open': p => openTerminalOn(p),
   'terminals/kill': p => killTerminalOn(p),
+  'terminals/say': p => sayOn(p),
 }
 
 // --- hosts: machines that open sessions for the dashboard ------------------------------
@@ -1473,6 +1474,17 @@ async function killTerminalOn(p) {
   const term = String(p.term ?? '')
   if (!NAME_RE.test(term)) throw bad('invalid session')
   return askHost(id, { t: 'kill', term })
+}
+
+// The chat box: type a message into a session opened by squadra-host.
+async function sayOn(p) {
+  const id = String(p.host ?? '')
+  const term = String(p.term ?? '')
+  if (!NAME_RE.test(term)) throw bad('invalid session')
+  if (typeof p.text !== 'string' || !p.text.trim() || p.text.length > 16 * 1024) throw bad('the message is empty or too long')
+  const result = await askHost(id, { t: 'say', term, text: p.text })
+  process.stderr.write(`squadra-server: dashboard typed a message into "${term}" on host ${id}\n`)
+  return result
 }
 
 function openStream(req, res) {

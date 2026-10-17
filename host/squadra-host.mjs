@@ -254,6 +254,24 @@ async function killTerminal(id) {
   return true
 }
 
+// Type a message into a session from the dashboard's chat box, as if it were
+// typed at its terminal, and press Enter. Pasted (bracketed paste, so a
+// multi-line message stays one prompt). Same switch as the web terminal.
+async function sayToTerminal(id, text) {
+  if (!loadSettings().allow_input) throw new Error('typing from the dashboard is turned off on this machine (allow_input: false)')
+  if (!NAME_RE.test(String(id))) throw new Error('invalid session')
+  if (typeof text !== 'string' || !text.trim() || text.length > 16 * 1024) throw new Error('the message is empty or too long')
+  if (!(await listTerminals()).some(t => t.id === id)) throw new Error('no such session on this machine')
+  const buffer = `sqsay-${id}`
+  await tmux(['set-buffer', '-b', buffer, '--', text.replace(/\r\n?/g, '\n')])
+  await tmux(['paste-buffer', '-p', '-d', '-b', buffer, '-t', PREFIX + id])
+  // Let Claude Code take the paste in before Enter submits it.
+  await new Promise(r => setTimeout(r, 300))
+  await tmux(['send-keys', '-t', PREFIX + id, 'Enter'])
+  log(`message typed into "${id}" from the dashboard`)
+  return true
+}
+
 // --- live terminal: tmux control mode --------------------------------------------------
 //
 // While someone watches a session, a control-mode client is attached to it:
@@ -409,6 +427,7 @@ async function connect(creds) {
     // Push the info either way: a refusal may have found the plugin missing.
     async open(m) { try { return await openTerminal(m.spec) } finally { await pushInfo() } },
     async kill(m) { const r = await killTerminal(m.term); await pushInfo(); return r },
+    say: m => sayToTerminal(m.term, m.text),
   }
 
   async function onMessage(m) {

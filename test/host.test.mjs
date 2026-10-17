@@ -215,6 +215,14 @@ test('opening a session runs the fixed command, and the web terminal sees and ty
   v.send({ t: 'in', host: hostId, term: 'w1', data: 'hello squadra\r' })
   await waitFor(() => v.text.includes('GOT:hello squadra'), { what: 'typed text echoed' })
 
+  // The chat box: a message typed into the session without attaching to it,
+  // pasted and sent with Enter.
+  const said = await dash('terminals/say', { host: hostId, term: 'w1', text: 'desde el chat' })
+  assert.ok(said.ok, said.description)
+  await waitFor(() => v.text.includes('GOT:desde el chat'), { what: 'message from the chat box' })
+  assert.equal((await dash('terminals/say', { host: hostId, term: 'w1', text: '   ' })).ok, false, 'empty message refused')
+  assert.match((await dash('terminals/say', { host: hostId, term: 'nadie', text: 'x' })).description, /no such session/)
+
   // A second viewer gets the current screen too.
   const v2 = viewer()
   await v2.open()
@@ -254,6 +262,10 @@ test('the machine limit and typing switch are the machine\'s own', { skip: !hasT
   await waitFor(() => v.msgs.some(m => m.t === 'notice'), { what: 'notice' })
   await sleep(300)
   assert.ok(!v.text.includes('GOT:should not arrive'))
+  // Nor from the chat box.
+  const said = await dash('terminals/say', { host: hostId, term: 'a1', text: 'nor this' })
+  assert.equal(said.ok, false)
+  assert.match(said.description, /allow_input: false/)
   await waitFor(async () => (await dash('hosts')).result.find(x => x.id === hostId).info.allow_input === false, { what: 'allow_input reported' })
   v.ws.close()
   writeFileSync(join(hostDir, 'settings.json'), JSON.stringify(settings))
