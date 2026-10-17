@@ -1,0 +1,6 @@
+data/
+docs/
+branding/
+test/
+.git/
+node_modules/

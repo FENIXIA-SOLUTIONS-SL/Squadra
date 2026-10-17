@@ -1,0 +1,2159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squadra</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%23C15F3C%22/%3E%3Cg%20fill%3D%22%23fff%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2219%22%20r%3D%226.4%22/%3E%3Ccircle%20cx%3D%2223.5%22%20cy%3D%2228.5%22%20r%3D%224.4%22/%3E%3Ccircle%20cx%3D%2240.5%22%20cy%3D%2228.5%22%20r%3D%224.4%22/%3E%3Ccircle%20cx%3D%2216.5%22%20cy%3D%2237%22%20r%3D%223.5%22/%3E%3Ccircle%20cx%3D%2247.5%22%20cy%3D%2237%22%20r%3D%223.5%22/%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2245%22%20r%3D%222.7%22/%3E%3Ccircle%20cx%3D%2253.5%22%20cy%3D%2245%22%20r%3D%222.7%22/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f5f4ef; --panel: #ffffff; --panel-2: #efede6; --line: #e1ded5; --text: #1f1e1c; --muted: #6f6c66;
+    --accent: #c15f3c;
+    --coord: #7c4dbd; --coord-soft: #efe7fa;   /* coordinators */
+    --worker: #1f7a8c; --worker-soft: #e2f1f3; /* workers */
+    --ok: #2f8f5b; --warn: #b7791f; --err: #c0392b; --info: #3b6fb6; --idle: #9a968d;
+    --bubble: #ece9e1; --bubble-in: #e7eef7;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --pane-h: clamp(340px, calc((100vh - 120px) / 2), 720px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1917; --panel: #22211f; --panel-2: #2a2926; --line: #393733; --text: #ecebe7; --muted: #a29e96;
+      --accent: #e0855f;
+      --coord: #b08ae8; --coord-soft: #2e2639;
+      --worker: #5cb8c9; --worker-soft: #1e3236;
+      --ok: #4fb57e; --warn: #e0a93f; --err: #e2665a; --info: #6d9be0; --idle: #8a877f;
+      --bubble: #302e2a; --bubble-in: #26303b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--info); }
+  code { font-family: var(--mono); font-size: .92em; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
+  [hidden] { display: none !important; }
+
+  /* --- login ------------------------------------------------------------------ */
+  #login, #splash { min-height: 100%; display: grid; place-items: center; padding: 16px; }
+  .login-card { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 28px; box-shadow: 0 8px 30px rgba(0,0,0,.06); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+  .brand .logo { width: 30px; height: 30px; flex: none; }
+  .login-card p { color: var(--muted); margin: 6px 0 18px; }
+  .login-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); font-family: var(--mono); }
+  .login-card button { width: 100%; margin-top: 12px; padding: 10px; border: 0; border-radius: 9px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  .login-card button:disabled { opacity: .6; cursor: default; }
+  .login-err { color: var(--err); min-height: 1.4em; margin-top: 10px; font-size: 13px; }
+  #splash { color: var(--muted); }
+
+  /* --- app shell --------------------------------------------------------------- */
+  #app { height: 100%; display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+  #side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  #side .brand { padding: 14px 14px 8px; font-size: 16px; }
+  #side .brand .logo { width: 26px; height: 26px; }
+  .nav { overflow: auto; padding: 4px 8px 12px; flex: 1; }
+  .nav-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 10px 8px 4px; }
+  .nav-item { width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 0 8px; align-items: center; padding: 7px 8px; border: 0; background: none; border-radius: 8px; cursor: pointer; text-align: left; }
+  .nav-item:hover { background: var(--panel-2); }
+  .nav-item.sel { background: var(--panel-2); font-weight: 600; }
+  .nav-item .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-item .s { grid-column: 2 / 4; font-size: 12px; color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Role marker: a straight vertical bar, not part of the rounded button edge. */
+  .nav-item.coordinator, .nav-item.worker { position: relative; padding-left: 16px; }
+  .nav-item.coordinator::before, .nav-item.worker::before { content: ""; position: absolute; left: 4px; top: 7px; bottom: 7px; width: 4px; border-radius: 1px; }
+  .nav-item.coordinator::before { background: var(--coord); }
+  .nav-item.worker::before { background: var(--worker); }
+  .badge { font-size: 11px; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: #fff; text-align: center; font-weight: 600; }
+  .badge.perm { background: var(--err); }
+  .side-foot { border-top: 1px solid var(--line); padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .side-foot button { margin-left: auto; border: 1px solid var(--line); background: none; border-radius: 7px; padding: 3px 10px; cursor: pointer; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; background: var(--idle); }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); } .dot.info { background: var(--info); }
+  .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  #main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--panel); min-height: 49px; }
+  .topbar h1 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .topbar .sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: none; padding: 3px 10px; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .menu-btn { display: none; border: 1px solid var(--line); background: none; border-radius: 7px; padding: 2px 9px; cursor: pointer; }
+  .role-tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; }
+  .role-tag.coordinator { color: var(--coord); background: var(--coord-soft); }
+  .role-tag.worker { color: var(--worker); background: var(--worker-soft); }
+
+  /* --- mosaic ------------------------------------------------------------------ */
+  /* Columns: as many fixed-minimum-width panes as fit the screen (laptop 2–3,
+     ultrawide 4–6), unless the user picks a fixed number. */
+  #mosaic { --pane-min: 460px; flex: 1; overflow: auto; padding: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--pane-min), 100%), 1fr)); gap: 14px; align-content: start; }
+  #mosaic.fixed { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
+  .pane { height: var(--pane-h); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; border-top: 4px solid var(--idle); }
+  .pane.coordinator { border-top-color: var(--coord); }
+  .pane.worker { border-top-color: var(--worker); }
+  .pane.attention { box-shadow: 0 0 0 2px var(--err); }
+  .pane.offline { opacity: .62; }
+  .pane-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .pane.coordinator .pane-head { background: var(--coord-soft); }
+  .pane.worker .pane-head { background: var(--worker-soft); }
+  .pane-head .title { font-weight: 650; border: 0; background: none; padding: 0; cursor: pointer; }
+  .pane-head .title:hover { text-decoration: underline; }
+  .ctx { font: 11.5px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0 7px; white-space: nowrap; }
+  .ctx.warm { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .ctx.hot { color: #fff; background: var(--err); border-color: var(--err); }
+  .pane-head .meta { margin-left: auto; color: var(--muted); font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mosaic-empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 60px 20px; }
+
+  /* --- chat (shared by panes and the session view) ---------------------------- */
+  .chat { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+  .scroll { flex: 1; overflow: auto; overscroll-behavior: contain; }
+  .items { padding: 12px 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .full .items { max-width: 860px; margin: 0 auto; padding: 20px 24px 28px; gap: 12px; }
+  .older { text-align: center; color: var(--muted); font-size: 12px; padding: 6px; }
+  .status { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); background: var(--panel); min-height: 34px; }
+  .full .status { justify-content: center; padding: 10px 16px; font-size: 13.5px; }
+  .status .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status.waiting { color: var(--err); font-weight: 600; }
+  .jump { position: absolute; bottom: 46px; left: 50%; transform: translateX(-50%); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 4px 12px; cursor: pointer; font-size: 12.5px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+
+  .row-user { align-self: flex-end; max-width: 85%; }
+  .bubble { background: var(--bubble); border-radius: 14px 14px 4px 14px; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble.in { background: var(--bubble-in); }
+  .bubble-head { font-size: 11.5px; color: var(--muted); margin: 0 4px 2px; text-align: right; }
+  .bubble-head b { color: var(--text); }
+  .assistant { overflow-wrap: anywhere; }
+  .assistant p { margin: 0 0 .55em; } .assistant p:last-child { margin-bottom: 0; }
+  .assistant pre { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; overflow: auto; font: 12.5px/1.45 var(--mono); margin: .4em 0; }
+  .assistant pre code { background: none; padding: 0; }
+  .assistant ul, .assistant ol { margin: .2em 0 .55em; padding-left: 1.4em; }
+  .assistant .h { font-weight: 700; display: block; margin: .5em 0 .2em; }
+  .sent { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 6px 10px; background: var(--panel); }
+  .sent .h { font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+  .sent .x { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .sysline { align-self: center; text-align: center; color: var(--muted); font-size: 12px; max-width: 92%; }
+  .sysline.warn { color: var(--warn); }
+  .sysline.notice { color: var(--text); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; }
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11.5px; margin: 2px 0; }
+  .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+
+  .tools { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .tools > summary { list-style: none; cursor: pointer; padding: 6px 10px; display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); }
+  .tools > summary::-webkit-details-marker { display: none; }
+  .tools > summary::before { content: "▸"; font-size: 10px; }
+  .tools[open] > summary::before { content: "▾"; }
+  .tools > summary .names { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tools > summary .st { margin-left: auto; white-space: nowrap; }
+  .tools .list { border-top: 1px solid var(--line); padding: 4px 0; }
+  .tool { padding: 3px 10px; font: 12.5px/1.45 var(--mono); }
+  .tool .line { display: flex; gap: 6px; align-items: baseline; }
+  .tool .arg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .tool .tn { font-weight: 700; flex: none; }
+  .tool .agent { font-family: system-ui, sans-serif; font-size: 10.5px; color: var(--info); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; flex: none; }
+  .res { margin-left: auto; flex: none; font-family: system-ui, sans-serif; font-size: 11.5px; padding-left: 8px; }
+  .res.ok { color: var(--ok); } .res.err { color: var(--err); } .res.run { color: var(--warn); }
+  .tool details summary { cursor: pointer; color: var(--muted); font: 11.5px system-ui, sans-serif; margin-left: 22px; }
+  .tool details pre { margin: 3px 0 4px 22px; padding: 7px 9px; background: var(--panel-2); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
+  .t { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+
+  #session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* version + language footers */
+  .side-ver, .login-card .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--muted); }
+  .side-ver { padding: 0 14px 10px; }
+  .login-card .foot { margin-top: 16px; }
+  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .login-card .lang button, .lang button { border: 0; background: none; padding: 1px 7px; cursor: pointer; color: var(--muted); font-size: 11px; width: auto; margin: 0; border-radius: 0; font-weight: 500; }
+  .login-card .lang button.on, .lang button.on { background: var(--panel-2); color: var(--text); font-weight: 650; }
+
+  /* actions, menus, dialogs */
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 4px 11px; cursor: pointer; color: var(--text); font-size: 13px; white-space: nowrap; }
+  .btn:hover { background: var(--panel-2); }
+  .btn.danger { color: var(--err); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary.danger { background: var(--err); border-color: var(--err); color: #fff; }
+  .more { border: 0; background: none; cursor: pointer; padding: 0 4px; font-size: 16px; line-height: 1; color: var(--muted); border-radius: 6px; }
+  .more:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+  .menu { position: fixed; z-index: 30; min-width: 190px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 4px; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 7px; cursor: pointer; }
+  .menu button:hover { background: var(--panel-2); }
+  .menu button.danger { color: var(--err); }
+  .menu button:disabled { color: var(--muted); cursor: default; background: none; }
+  .menu .hint { font-size: 11.5px; color: var(--muted); padding: 2px 10px 6px; }
+  .modal-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: grid; place-items: center; padding: 16px; }
+  .modal { width: min(440px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .modal h3 { margin: 0 0 8px; font-size: 16px; }
+  .modal p { margin: 0 0 16px; color: var(--muted); }
+  .modal .err { color: var(--err); font-size: 13px; min-height: 1.2em; margin: -6px 0 10px; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* archived */
+  #archived { flex: 1; overflow: auto; padding: 18px; }
+  .arch-list { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+  .arch { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 4px solid var(--idle); }
+  .arch.coordinator { border-left-color: var(--coord); } .arch.worker { border-left-color: var(--worker); }
+  .arch .info { flex: 1; min-width: 200px; }
+  .arch .info .n { font-weight: 650; display: flex; gap: 8px; align-items: center; }
+  .arch .info .m { color: var(--muted); font-size: 12.5px; }
+  .arch .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nav-sep { border-top: 1px solid var(--line); margin: 10px 6px 4px; }
+
+  /* section tabs (top bar) and the add-machine shortcut (sidebar) */
+  .tabs { display: inline-flex; gap: 2px; background: var(--panel-2); padding: 3px; border-radius: 10px; flex: none; }
+  .tabs button { border: 0; background: none; padding: 4px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .tabs .count { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .top-div { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; flex: none; }
+  #side .brand { display: flex; }
+  .add-host { margin-left: auto; border: 1px solid var(--line); background: none; border-radius: 8px; width: 32px; height: 28px; display: grid; place-items: center; cursor: pointer; color: var(--muted); padding: 0; }
+  .add-host:hover { background: var(--panel-2); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .add-host svg { width: 20px; height: 18px; }
+  /* squads: a coordinator boxed in its colour, its workers folded under it */
+  .squad { border: 1.5px solid color-mix(in srgb, var(--coord) 55%, var(--line)); border-radius: 10px; margin: 6px 0; background: color-mix(in srgb, var(--coord-soft) 55%, var(--panel)); overflow: hidden; }
+  .squad.sel-in { border-color: var(--coord); }
+  .squad-head { display: flex; align-items: center; }
+  .squad-head .nav-item { flex: 1; min-width: 0; }
+  .squad .nav-item.coordinator { padding-left: 8px; }
+  .squad .nav-item.coordinator::before { display: none; }
+  .squad .nav-item:hover, .squad .nav-item.sel { background: color-mix(in srgb, var(--coord) 12%, transparent); }
+  .squad-toggle { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--coord); font-size: 12px; font-weight: 600; padding: 4px 7px; margin-right: 4px; border-radius: 7px; cursor: pointer; }
+  .squad-toggle:hover { background: color-mix(in srgb, var(--coord) 14%, transparent); }
+  .squad-toggle .chev { display: inline-block; transition: transform .15s; font-size: 10px; }
+  .squad.open .squad-toggle .chev { transform: rotate(90deg); }
+  .squad-toggle .badge { margin-left: 2px; }
+  .squad-body { border-top: 1px solid color-mix(in srgb, var(--coord) 25%, var(--line)); padding: 2px 0 3px; background: var(--panel); }
+  .squad:not(.open) .squad-body { display: none; }
+  .squad-body .nav-item.worker { padding-left: 24px; border-radius: 0; }
+  .squad-body .nav-item.worker::before { left: 12px; }
+  .squad-empty { font-size: 12px; color: var(--muted); padding: 5px 12px 6px 24px; }
+  .squad-mosaic { flex: none; border: 0; background: none; color: var(--coord); padding: 3px 5px; border-radius: 7px; cursor: pointer; font-size: 13px; line-height: 1; }
+  .squad-mosaic:hover, .squad-mosaic.on { background: color-mix(in srgb, var(--coord) 16%, transparent); }
+  /* mosaic: one heading row per squad */
+  .squad-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 2px 2px 6px; border-bottom: 2px solid color-mix(in srgb, var(--coord) 45%, var(--line)); flex-wrap: wrap; }
+  .squad-row:not(:first-child) { margin-top: 12px; }
+  .squad-row .n { font-weight: 650; color: var(--coord); }
+  .squad-row .m { color: var(--muted); font-size: 12.5px; }
+  .squad-row .acts { margin-left: auto; display: flex; gap: 6px; }
+  .squad-row.orphans { border-bottom-color: var(--line); }
+  .squad-row.orphans .n { color: var(--muted); }
+  /* alerts: what needs you, across every session */
+  #alerts { display: flex; gap: 8px; align-items: center; padding: 6px 18px; background: color-mix(in srgb, var(--err) 9%, var(--panel)); border-bottom: 1px solid color-mix(in srgb, var(--err) 30%, var(--line)); flex-wrap: wrap; font-size: 13px; }
+  #alerts .lbl { font-weight: 650; color: var(--err); }
+  .alert { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 2px 10px; cursor: pointer; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .alert:hover { border-color: var(--err); }
+  .alert.ctxw { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+  .alert b { font-weight: 650; }
+  .nav-item.sub { padding-left: 30px; }
+  .nav-item.sub.coordinator, .nav-item.sub.worker { padding-left: 30px; }
+  .nav-item.sub.coordinator::before, .nav-item.sub.worker::before { left: 18px; }
+
+  /* machines (hosts) */
+  #hosts { flex: 1; overflow: auto; padding: 18px; }
+  .host-list { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .host { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .host.offline { opacity: .7; }
+  .host-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; flex-wrap: wrap; }
+  .host-head .n { font-weight: 650; font-size: 15px; }
+  .host-head .m { color: var(--muted); font-size: 12.5px; }
+  .host-head .acts { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .host-meta { padding: 0 14px 10px; color: var(--muted); font-size: 12.5px; display: flex; gap: 6px 14px; flex-wrap: wrap; }
+  .host-terms { border-top: 1px solid var(--line); }
+  .term-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .term-row:first-child { border-top: 0; }
+  .term-row .n { font-weight: 600; }
+  .term-row .m { color: var(--muted); font-size: 12.5px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  .term-row .acts { display: flex; gap: 6px; }
+  .host-empty { padding: 12px 14px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+  .modal.wide { width: min(620px, 100%); }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field > span { font-size: 12.5px; color: var(--muted); }
+  .field input[type=text], .field select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
+  .field .hint { font-size: 12px; color: var(--muted); }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-bottom: 12px; }
+  .check input { margin-top: 3px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .cmd { position: relative; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0 0 10px; }
+  .wait { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 6px 0 14px; }
+  /* web terminal */
+  #terminal { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #161513; }
+  #terminal .term-box { flex: 1; min-height: 0; padding: 6px 8px; position: relative; }
+  #terminal .term-box .xterm { height: 100%; }
+  .term-foot { padding: 6px 14px; font-size: 12px; color: #a29e96; background: #1f1e1c; border-top: 1px solid #393733; display: flex; gap: 10px; align-items: center; }
+  .term-foot .ro { color: var(--warn); font-weight: 600; }
+  .term-over { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(22,21,19,.82); color: #ecebe7; text-align: center; padding: 20px; z-index: 2; }
+
+  @media (max-width: 900px) {
+    .row2 { grid-template-columns: 1fr; }
+    #app { grid-template-columns: 1fr; }
+    #side { position: fixed; inset: 0 30% 0 0; z-index: 10; transform: translateX(-100%); transition: transform .2s; box-shadow: 4px 0 20px rgba(0,0,0,.2); }
+    #side.open { transform: none; }
+    .menu-btn { display: inline-block; }
+    #mosaic { grid-template-columns: 1fr !important; }
+    .seg { display: none; }
+    .topbar .sub, .top-div, .tabs .count { display: none; }
+    .topbar { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="squadra-logo" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="15" fill="#C15F3C"/>
+    <g fill="#fff">
+      <circle cx="32" cy="19" r="6.4"/>
+      <circle cx="23.5" cy="28.5" r="4.4" fill-opacity=".95"/><circle cx="40.5" cy="28.5" r="4.4" fill-opacity=".95"/>
+      <circle cx="16.5" cy="37" r="3.5" fill-opacity=".85"/><circle cx="47.5" cy="37" r="3.5" fill-opacity=".85"/>
+      <circle cx="10.5" cy="45" r="2.7" fill-opacity=".72"/><circle cx="53.5" cy="45" r="2.7" fill-opacity=".72"/>
+    </g>
+  </symbol>
+</svg>
+
+<div id="splash" hidden></div>
+
+<div id="login" hidden>
+  <form class="login-card" id="loginForm">
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#squadra-logo"/></svg>Squadra</div>
+    <p id="loginIntro"></p>
+    <input id="tokenInput" type="password" autocomplete="current-password" required>
+    <button type="submit" id="loginBtn"></button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="foot"><span class="ver"></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></div>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <aside id="side">
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#squadra-logo"/></svg>Squadra
+      <button class="add-host" id="addHostBtn" type="button"><svg viewBox="0 0 24 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2" width="16" height="11.5" rx="1.8"/><path d="M6.5 18h6M9.5 13.5V18"/><circle cx="18.5" cy="15.5" r="5" fill="var(--panel)"/><path d="M18.5 13v5M16 15.5h5"/></svg></button>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot"><span class="dot" id="connDot"></span><span id="connText"></span><button id="logoutBtn"></button></div>
+    <div class="side-ver"><span class="ver"></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></div>
+  </aside>
+  <div id="main">
+    <div class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <nav class="tabs" id="tabs" role="tablist"></nav>
+      <span class="top-div"></span>
+      <h1 id="topTitle"></h1>
+      <span class="sub" id="topSub"></span>
+      <div class="right" id="topRight"></div>
+    </div>
+    <div id="alerts" hidden></div>
+    <div id="mosaic" hidden></div>
+    <div id="archived" hidden></div>
+    <div id="session" class="full" hidden></div>
+    <div id="hosts" hidden></div>
+    <div id="terminal" hidden></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id)
+  const store = {
+    get: k => { try { return localStorage.getItem(k) } catch { return null } },
+    set: (k, v) => { try { localStorage.setItem(k, v) } catch {} },
+    del: k => { try { localStorage.removeItem(k) } catch {} },
+  }
+
+  // ---------------------------------------------------------------------------
+  // language: browser language (Spanish → es, anything else → en), switchable
+  const LANG = (() => {
+    const saved = store.get('squadraLang')
+    if (saved === 'es' || saved === 'en') return saved
+    return (navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en'
+  })()
+  const LOCALE = LANG === 'es' ? 'es-ES' : 'en-GB'
+  const I18N = {
+    en: {
+      offline: ago => `Disconnected · seen ${ago} ago`,
+      working: d => `Working · ${d}`,
+      waitingTool: (n, sum) => `🔐 Waiting for permission to use ${n} · ${sum}`,
+      waitingInput: w => `Waiting: ${w || 'your answer'}`,
+      compacting: 'Compacting context',
+      idle: d => `Idle · ${d}`,
+      ended: 'Claude session closed',
+      connectedNoObs: 'Connected (not observed)',
+      connected: 'Connected',
+      tool: 'Tool',
+      jump: n => n ? `↓ ${n} new` : '↓ new',
+      tokenInvalid: 'The token is no longer valid.',
+      loading: 'Loading…',
+      scrollMore: 'Scroll up to see more',
+      clearedEmpty: when => `Chat cleared on ${when}. New activity will show up here.`,
+      clearedTop: when => `Chat cleared on ${when}`,
+      noActivity: 'No activity yet. It shows up once the session runs <code>/squadra:login</code> with observation «activity» or «full».',
+      historyStart: 'Start of saved history',
+      serverNotice: 'server notice',
+      you: 'You',
+      inGroup: g => ` in ${g}`,
+      turnEnded: 'turn ended',
+      background: n => `${n} in background`,
+      sessionStarted: resumed => `Claude session ${resumed ? 'resumed' : 'started'}`,
+      inDir: d => ` in <code>${d}</code>`,
+      sessionEnded: 'Claude session closed',
+      observing: lvl => `Connected to Squadra · observation «${lvl}»`,
+      compactingLine: '🗜️ Compacting context',
+      waitingPermission: '🔐 waiting for permission',
+      running: n => n > 1 ? `${n} running` : 'running',
+      withErrors: n => `${n} failed`,
+      subagent: started => `Subagent ${started ? 'started' : 'finished'}`,
+      result: 'result',
+      tools: n => `${n} tool${n === 1 ? '' : 's'}`,
+      permShort: '🔐 permission',
+      interrupted: 'interrupted',
+      error: 'error',
+      input: 'input',
+      output: 'output',
+      allSessions: 'All sessions',
+      activeOf: (a, t) => `${a} of ${t} active`,
+      coordinators: 'Coordinators',
+      squads: 'Squads',
+      noCoordinator: 'Without a coordinator',
+      squadToggle: (n, open) => `${open ? 'Hide' : 'Show'} ${n} worker${n === 1 ? '' : 's'}`,
+      squadCount: (on, n) => `${on} of ${n} worker${n === 1 ? '' : 's'} connected`,
+      noWorkers: 'No workers yet',
+      squadOf: n => `Squad ${n}`,
+      viewSquad: '▦ View squad',
+      viewSquadTitle: n => `Show only ${n} and its workers in the mosaic`,
+      addWorker: '+ Worker',
+      addWorkerTo: n => `Add a worker to ${n}`,
+      squadEmpty: n => `${n} is not here.`,
+      needsYou: 'Needs you:',
+      alertPerm: (n, what) => `🔐 <b>${n}</b> is waiting${what ? ` · ${what}` : ''}`,
+      alertCtx: (n, p) => `📈 <b>${n}</b> at ${p}% of its context`,
+      alertMore: n => `+${n} more`,
+      workers: 'Workers',
+      archived: 'Archived',
+      archivedCount: n => n ? `${n} session${n === 1 ? '' : 's'}` : 'None',
+      roleCoordinator: 'coordinator',
+      roleWorker: 'worker',
+      columns: 'Columns',
+      auto: 'Auto',
+      archivedTitle: '🗄️ Archived sessions',
+      archivedSub: 'Hidden from the mosaic. A session that reconnects is unarchived automatically.',
+      backAll: '▦ All',
+      backArchived: '🗄️ Archived',
+      archivedTag: 'archived',
+      context: k => `context ${k} tokens`,
+      contextPct: p => `${p}% before auto-compact`,
+      contextTitle: (p, k, at) => `Context: ${k} tokens, ${p}% of the ${at} tokens at which it auto-compacts`,
+      compactedLine: auto => `🗜️ Context compacted (${auto ? 'automatic' : 'manual'}); Squadra role and recent messages restored`,
+      compactSummary: 'summary',
+      coordinatorOf: c => `coordinator: ${c}`,
+      clearChat: 'Clear chat',
+      unarchive: 'Unarchive',
+      archive: 'Archive',
+      delete: 'Delete',
+      deleteSession: 'Delete session',
+      openChat: 'Open chat',
+      viewChat: 'View chat',
+      offlineHint: 'Archive and delete only work on disconnected sessions.',
+      actions: n => `Actions for ${n}`,
+      mosaicEmpty: arch => `${arch ? `No active sessions (${arch} archived). ` : 'No sessions yet. '}Open one from <a href="#/hosts">🖥️ Machines</a>, or start Claude with the <code>claude-squadra</code> alias and run <code>/squadra:login coordinator</code> or <code>/squadra:login worker1</code>.`,
+      cancel: 'Cancel',
+      unauthorized: 'unauthorized',
+      sessionOnline: 'The session is connected: disconnect it first (/squadra:logout or close Claude).',
+      clearTitle: n => `Clear ${n}'s chat`,
+      clearText: (who, online) => `Deletes ${who}'s activity from the server (prompts, tools, Claude's text). Messages between sessions are hidden in this chat but stay in the other sessions' chats.${online ? ' The session stays connected and new activity keeps showing up.' : ''} The conversation inside Claude itself is not touched.`,
+      archiveTitle: n => `Archive ${n}`,
+      archiveText: who => `${who} disappears from the mosaic and the list and moves to «Archived» with all its history. If it reconnects, it is unarchived automatically.`,
+      deleteTitle: n => `Delete ${n}`,
+      deleteText: (who, n) => `Deletes ${who}'s identity and all its activity from the server. Its messages stay in the other sessions' chats. If it runs <code>/squadra:login ${n}</code> again, it registers again. This cannot be undone.`,
+      couldNotComplete: 'Could not complete',
+      ok: 'OK',
+      archivedAt: d => `Archived ${d}`,
+      noArchived: 'No archived sessions. Archive a disconnected session from its ⋯ menu.',
+      live: 'live',
+      reconnecting: 'reconnecting…',
+      connecting: 'Connecting…',
+      tokenWrong: 'Wrong token.',
+      cannotConnect: m => `Can't reach the server: ${m}`,
+      storedTokenInvalid: 'The saved token is no longer valid.',
+      logout: 'Log out',
+      logoutTitle: 'Forget the token in this browser',
+      sessionsMenu: 'Sessions',
+      loginIntro: 'Enter the server token: <code>squadra-server</code> prints it at startup and it is stored in <code>data/server-token</code>.',
+      tokenPlaceholder: 'Server token',
+      enter: 'Sign in',
+      machines: 'Machines',
+      tabSessions: 'Sessions',
+      allMachines: 'All machines',
+      hostSessions: n => `${n} session${n === 1 ? '' : 's'}`,
+      machinesCount: (on, n) => n ? `${on} of ${n} connected` : 'None yet',
+      machinesTitle: '🖥️ Machines',
+      machinesSub: 'Computers running squadra-host: open sessions on them and use their terminals from here.',
+      addMachine: '+ Add machine',
+      newSession: '+ New session',
+      noMachines: 'No machines yet. Install squadra-host on a computer with Claude Code to open sessions from here: click <b>+ Add machine</b> and run the command it gives you there.',
+      hostOffline: ago => `Disconnected · seen ${ago} ago`,
+      hostOnline: 'Connected',
+      folders: 'Folders',
+      noFolders: 'none: add one on the machine with <code>squadra-host folders add &lt;path&gt;</code>',
+      maxSessions: n => `up to ${n} sessions`,
+      typingOn: 'typing from here: allowed',
+      typingOff: 'watch only (typing turned off on the machine)',
+      noTerminals: 'No sessions open on this machine.',
+      terminal: '⌨ Terminal',
+      chat: 'Chat',
+      closeSession: 'Close session',
+      closeSessionTitle: n => `Close ${n}`,
+      closeSessionText: (n, h) => `Ends the Claude Code session <b>${n}</b> on <b>${h}</b> (like closing its terminal). Its conversation stays in Claude's history and can be resumed with «Continue the last conversation».`,
+      rename: 'Rename',
+      renameTitle: 'Rename machine',
+      disconnect: 'Disconnect',
+      disconnectTitle: n => `Disconnect ${n}`,
+      disconnectText: n => `<b>${n}</b> stops being able to connect: its credential is revoked and squadra-host stops on that machine. Sessions already open there keep running (<code>tmux -L squadra ls</code>). To add it again you need a new command from «+ Add machine».`,
+      save: 'Save',
+      name: 'Name',
+      addTitle: 'Add a machine',
+      addIntro: 'The machine needs <b>Node 22+</b>, <b>tmux</b> and <b>Claude Code</b> with the Squadra plugin installed. You will get a one-time command to run there.',
+      machineName: 'Name for the machine (optional)',
+      machineNameHint: 'Defaults to its hostname.',
+      configurePlugin: 'Also configure the Squadra plugin on that machine (server address and token), if it is not configured yet',
+      generate: 'Generate command',
+      runThis: 'Run this on the machine, in the folder where sessions should be allowed to open:',
+      copy: 'Copy',
+      copied: 'Copied ✓',
+      codeValid: t => `Single-use code, valid until ${t}.`,
+      waitingMachine: 'Waiting for the machine to connect…',
+      machineJoined: n => `✓ <b>${n}</b> is connected.`,
+      done: 'Done',
+      newSessionTitle: 'New session',
+      machine: 'Machine',
+      noOnlineMachines: 'No machine is connected. Add one, or start squadra-host on it.',
+      role: 'Role',
+      sessionName: 'Session name',
+      coordinatorName: 'Coordinator',
+      folder: 'Folder',
+      subfolder: 'Subfolder (optional)',
+      subfolderHint: 'Relative to the folder above, e.g. my-repo/api',
+      compact: 'Auto-compact at',
+      compactDefault: 'Claude Code default (~967K on 1M models, 200K on others)',
+      compactRec: '600K tokens — recommended for 1M-context models',
+      compactK: k => `${k}K tokens`,
+      compactHint: 'Never above the model\'s own window: on 200K models it stays at 200K.',
+      resume: 'Continue the last conversation in that folder (claude --continue)',
+      open: 'Open',
+      opening: 'Opening…',
+      nameTaken: n => `A session named "${n}" already exists and is connected.`,
+      termHint: h => `Typing goes straight to Claude on ${h}. On first start accept the development-channels prompt and, if asked, trust the folder and sign in with /login.`,
+      readOnly: 'Watch only',
+      redraw: 'Redraw',
+      termEnded: 'The session ended on the machine.',
+      termHostDown: 'The machine is disconnected. Waiting for it to come back…',
+      termLinkDown: 'Reconnecting to the server…',
+      termLoading: 'Loading the terminal…',
+      termLoadFailed: 'Could not load the terminal component (xterm.js from cdn.jsdelivr.net).',
+      onHost: h => `on ${h}`,
+      back: 'Back',
+    },
+    es: {
+      offline: ago => `Desconectada · vista hace ${ago}`,
+      working: d => `Trabajando · ${d}`,
+      waitingTool: (n, sum) => `🔐 Esperando permiso para ${n} · ${sum}`,
+      waitingInput: w => `Esperando: ${w || 'tu respuesta'}`,
+      compacting: 'Compactando contexto',
+      idle: d => `Inactiva · ${d}`,
+      ended: 'Sesión de Claude cerrada',
+      connectedNoObs: 'Conectada (sin observación)',
+      connected: 'Conectada',
+      tool: 'Herramienta',
+      jump: n => n ? `↓ ${n} nuevo${n > 1 ? 's' : ''}` : '↓ nuevo',
+      tokenInvalid: 'El token ya no es válido.',
+      loading: 'Cargando…',
+      scrollMore: 'Desplázate hacia arriba para ver más',
+      clearedEmpty: when => `Chat limpiado el ${when}. Lo nuevo aparecerá aquí.`,
+      clearedTop: when => `Chat limpiado el ${when}`,
+      noActivity: 'Sin actividad todavía. Aparece cuando la sesión hace <code>/squadra:login</code> con observación «activity» o «full».',
+      historyStart: 'Inicio del historial guardado',
+      serverNotice: 'aviso del servidor',
+      you: 'Tú',
+      inGroup: g => ` en ${g}`,
+      turnEnded: 'turno terminado',
+      background: n => `${n} en segundo plano`,
+      sessionStarted: resumed => `Sesión de Claude ${resumed ? 'retomada' : 'iniciada'}`,
+      inDir: d => ` en <code>${d}</code>`,
+      sessionEnded: 'Sesión de Claude cerrada',
+      observing: lvl => `Conectada a Squadra · observación «${lvl}»`,
+      compactingLine: '🗜️ Compactando contexto',
+      waitingPermission: '🔐 esperando permiso',
+      running: n => n > 1 ? `${n} en curso` : 'en curso',
+      withErrors: n => `${n} con error`,
+      subagent: started => `Subagente ${started ? 'iniciado' : 'terminado'}`,
+      result: 'resultado',
+      tools: n => `${n} herramienta${n === 1 ? '' : 's'}`,
+      permShort: '🔐 permiso',
+      interrupted: 'interrumpido',
+      error: 'error',
+      input: 'entrada',
+      output: 'salida',
+      allSessions: 'Todas las sesiones',
+      activeOf: (a, t) => `${a} de ${t} activas`,
+      coordinators: 'Coordinadores',
+      squads: 'Escuadras',
+      noCoordinator: 'Sin coordinador',
+      squadToggle: (n, open) => `${open ? 'Ocultar' : 'Mostrar'} ${n} worker${n === 1 ? '' : 's'}`,
+      squadCount: (on, n) => `${on} de ${n} worker${n === 1 ? '' : 's'} conectado${n === 1 ? '' : 's'}`,
+      noWorkers: 'Todavía sin workers',
+      squadOf: n => `Escuadra ${n}`,
+      viewSquad: '▦ Ver escuadra',
+      viewSquadTitle: n => `Ver en el mosaico solo a ${n} y sus workers`,
+      addWorker: '+ Worker',
+      addWorkerTo: n => `Añadir un worker a ${n}`,
+      squadEmpty: n => `${n} no está.`,
+      needsYou: 'Te necesitan:',
+      alertPerm: (n, what) => `🔐 <b>${n}</b> espera${what ? ` · ${what}` : ''}`,
+      alertCtx: (n, p) => `📈 <b>${n}</b> al ${p}% de su contexto`,
+      alertMore: n => `y ${n} más`,
+      workers: 'Workers',
+      archived: 'Archivadas',
+      archivedCount: n => n ? `${n} sesión${n === 1 ? '' : 'es'}` : 'Ninguna',
+      roleCoordinator: 'coordinador',
+      roleWorker: 'worker',
+      columns: 'Columnas',
+      auto: 'Auto',
+      archivedTitle: '🗄️ Sesiones archivadas',
+      archivedSub: 'No aparecen en el mosaico. Si una vuelve a conectarse, se desarchiva sola.',
+      backAll: '▦ Todas',
+      backArchived: '🗄️ Archivadas',
+      archivedTag: 'archivada',
+      context: k => `contexto ${k} tokens`,
+      contextPct: p => `${p}% antes de autocompactar`,
+      contextTitle: (p, k, at) => `Contexto: ${k} tokens, el ${p}% de los ${at} tokens en los que se autocompacta`,
+      compactedLine: auto => `🗜️ Contexto compactado (${auto ? 'automático' : 'manual'}); rol de Squadra y mensajes recientes restaurados`,
+      compactSummary: 'resumen',
+      coordinatorOf: c => `coordinador: ${c}`,
+      clearChat: 'Limpiar chat',
+      unarchive: 'Desarchivar',
+      archive: 'Archivar',
+      delete: 'Eliminar',
+      deleteSession: 'Eliminar sesión',
+      openChat: 'Abrir chat',
+      viewChat: 'Ver chat',
+      offlineHint: 'Archivar y eliminar solo con la sesión desconectada.',
+      actions: n => `Acciones de ${n}`,
+      mosaicEmpty: arch => `${arch ? `No hay sesiones activas (${arch} archivada${arch === 1 ? '' : 's'}). ` : 'Todavía no hay sesiones. '}Abre una desde <a href="#/hosts">🖥️ Máquinas</a>, o arranca Claude con el alias <code>claude-squadra</code> y haz <code>/squadra:login coordinador</code> o <code>/squadra:login worker1</code>.`,
+      cancel: 'Cancelar',
+      unauthorized: 'sin autorización',
+      sessionOnline: 'La sesión está conectada: desconéctala primero (/squadra:logout o cerrando Claude).',
+      clearTitle: n => `Limpiar el chat de ${n}`,
+      clearText: (who, online) => `Se borra del servidor la actividad de ${who} (prompts, herramientas, textos de Claude). Los mensajes entre sesiones se ocultan en este chat, pero siguen en el de las otras sesiones.${online ? ' La sesión sigue conectada y lo nuevo seguirá apareciendo.' : ''} La conversación en el propio Claude no se toca.`,
+      archiveTitle: n => `Archivar ${n}`,
+      archiveText: who => `${who} deja de aparecer en el mosaico y en la lista, y pasa a «Archivadas» con todo su historial. Si vuelve a conectarse, se desarchiva sola.`,
+      deleteTitle: n => `Eliminar ${n}`,
+      deleteText: (who, n) => `Se borran del servidor la identidad y toda la actividad de ${who}. Sus mensajes siguen en los chats de las otras sesiones. Si vuelve a hacer <code>/squadra:login ${n}</code>, se registrará de nuevo. No se puede deshacer.`,
+      couldNotComplete: 'No se ha podido completar',
+      ok: 'Vale',
+      archivedAt: d => `Archivada ${d}`,
+      noArchived: 'No hay sesiones archivadas. Desde el menú ⋯ de una sesión desconectada puedes archivarla.',
+      live: 'en directo',
+      reconnecting: 'reconectando…',
+      connecting: 'Conectando…',
+      tokenWrong: 'Token incorrecto.',
+      cannotConnect: m => `No se puede conectar con el servidor: ${m}`,
+      storedTokenInvalid: 'El token guardado ya no es válido.',
+      logout: 'Salir',
+      logoutTitle: 'Olvidar el token en este navegador',
+      sessionsMenu: 'Sesiones',
+      loginIntro: 'Introduce el token del servidor: lo muestra <code>squadra-server</code> al arrancar y está en <code>data/server-token</code>.',
+      tokenPlaceholder: 'Token del servidor',
+      enter: 'Entrar',
+      machines: 'Máquinas',
+      tabSessions: 'Sesiones',
+      allMachines: 'Todas las máquinas',
+      hostSessions: n => `${n} sesi${n === 1 ? 'ón' : 'ones'}`,
+      machinesCount: (on, n) => n ? `${on} de ${n} conectadas` : 'Ninguna todavía',
+      machinesTitle: '🖥️ Máquinas',
+      machinesSub: 'Ordenadores con squadra-host: abre sesiones en ellos y usa sus terminales desde aquí.',
+      addMachine: '+ Añadir máquina',
+      newSession: '+ Nueva sesión',
+      noMachines: 'Todavía no hay máquinas. Instala squadra-host en un ordenador con Claude Code para abrir sesiones desde aquí: pulsa <b>+ Añadir máquina</b> y ejecuta allí el comando que te da.',
+      hostOffline: ago => `Desconectada · vista hace ${ago}`,
+      hostOnline: 'Conectada',
+      folders: 'Carpetas',
+      noFolders: 'ninguna: añade una en la máquina con <code>squadra-host folders add &lt;ruta&gt;</code>',
+      maxSessions: n => `hasta ${n} sesiones`,
+      typingOn: 'escribir desde aquí: permitido',
+      typingOff: 'solo ver (escribir está desactivado en la máquina)',
+      noTerminals: 'No hay sesiones abiertas en esta máquina.',
+      terminal: '⌨ Terminal',
+      chat: 'Chat',
+      closeSession: 'Cerrar sesión',
+      closeSessionTitle: n => `Cerrar ${n}`,
+      closeSessionText: (n, h) => `Termina la sesión de Claude Code <b>${n}</b> en <b>${h}</b> (como cerrar su terminal). Su conversación queda en el historial de Claude y se puede retomar con «Continuar la última conversación».`,
+      rename: 'Renombrar',
+      renameTitle: 'Renombrar máquina',
+      disconnect: 'Desconectar',
+      disconnectTitle: n => `Desconectar ${n}`,
+      disconnectText: n => `<b>${n}</b> deja de poder conectarse: se revoca su credencial y squadra-host se detiene en esa máquina. Las sesiones ya abiertas allí siguen funcionando (<code>tmux -L squadra ls</code>). Para volver a añadirla necesitas un comando nuevo de «+ Añadir máquina».`,
+      save: 'Guardar',
+      name: 'Nombre',
+      addTitle: 'Añadir una máquina',
+      addIntro: 'La máquina necesita <b>Node 22+</b>, <b>tmux</b> y <b>Claude Code</b> con el plugin de Squadra instalado. Obtendrás un comando de un solo uso para ejecutar allí.',
+      machineName: 'Nombre de la máquina (opcional)',
+      machineNameHint: 'Por defecto, su hostname.',
+      configurePlugin: 'Configurar también el plugin de Squadra en esa máquina (dirección y token del servidor), si aún no lo está',
+      generate: 'Generar comando',
+      runThis: 'Ejecuta esto en la máquina, en la carpeta donde se podrán abrir sesiones:',
+      copy: 'Copiar',
+      copied: 'Copiado ✓',
+      codeValid: t => `Código de un solo uso, válido hasta las ${t}.`,
+      waitingMachine: 'Esperando a que la máquina se conecte…',
+      machineJoined: n => `✓ <b>${n}</b> está conectada.`,
+      done: 'Hecho',
+      newSessionTitle: 'Nueva sesión',
+      machine: 'Máquina',
+      noOnlineMachines: 'No hay ninguna máquina conectada. Añade una o arranca squadra-host en ella.',
+      role: 'Rol',
+      sessionName: 'Nombre de la sesión',
+      coordinatorName: 'Coordinador',
+      folder: 'Carpeta',
+      subfolder: 'Subcarpeta (opcional)',
+      subfolderHint: 'Relativa a la carpeta de arriba, p. ej. mi-repo/api',
+      compact: 'Autocompactar a los',
+      compactDefault: 'Lo que haga Claude Code (~967K en modelos de 1M, 200K en el resto)',
+      compactRec: '600K tokens — recomendado para modelos de 1M de contexto',
+      compactK: k => `${k}K tokens`,
+      compactHint: 'Nunca por encima de la ventana del modelo: en modelos de 200K se queda en 200K.',
+      resume: 'Continuar la última conversación en esa carpeta (claude --continue)',
+      open: 'Abrir',
+      opening: 'Abriendo…',
+      nameTaken: n => `Ya hay una sesión conectada con el nombre "${n}".`,
+      termHint: h => `Lo que escribas va directo a Claude en ${h}. En el primer arranque acepta el aviso de channels de desarrollo y, si lo pide, confía en la carpeta e inicia sesión con /login.`,
+      readOnly: 'Solo ver',
+      redraw: 'Redibujar',
+      termEnded: 'La sesión terminó en la máquina.',
+      termHostDown: 'La máquina está desconectada. Esperando a que vuelva…',
+      termLinkDown: 'Reconectando con el servidor…',
+      termLoading: 'Cargando el terminal…',
+      termLoadFailed: 'No se ha podido cargar el componente del terminal (xterm.js desde cdn.jsdelivr.net).',
+      onHost: h => `en ${h}`,
+      back: 'Volver',
+    },
+  }
+  const T = I18N[LANG]
+  document.documentElement.lang = LANG
+
+  // ---------------------------------------------------------------------------
+  // state
+  let token = store.get('squadraToken') ?? store.get('swarmToken')
+  // 'auto' (fit the screen) or a fixed number of columns
+  let cols = store.get('squadraCols') || store.get('swarmCols') || 'auto'
+  const sessions = new Map()      // name -> session view (from server)
+  const hosts = new Map()         // host id -> host view (machines running squadra-host)
+  let groups = []                  // [{id, members}]
+  let serverSkew = 0
+  let streamAbort = null
+  const unread = new Map()         // name -> count (while not visible)
+  const views = new Set()          // live ChatViews
+
+  // ---------------------------------------------------------------------------
+  // helpers
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  const now = () => Date.now() + serverSkew
+  const hhmm = ms => new Date(ms).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dur = ms => {
+    if (ms > 0 && ms < 1000) return `${(ms / 1000).toFixed(1).replace('.', LANG === 'es' ? ',' : '.')} s`
+    const s = Math.max(0, Math.round(ms / 1000))
+    return s < 60 ? `${s} s` : s < 3600 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`
+  }
+  const kfmt = n => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
+  const base = p => String(p ?? '').split('/').filter(Boolean).pop() ?? ''
+  const roleOf = name => sessions.get(name)?.role ?? ''
+
+  async function api(path) {
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } })
+    if (r.status === 401) throw Object.assign(new Error('unauthorized'), { status: 401 })
+    const j = await r.json()
+    if (!j.ok) throw new Error(j.description)
+    return j.result
+  }
+
+  // Small, safe markdown: everything is escaped first, then a few constructs.
+  function md(src) {
+    const blocks = []
+    let text = esc(src).replace(/```([\w-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      blocks.push(`<pre><code>${code.replace(/\n$/, '')}</code></pre>`)
+      return `\u0000${blocks.length - 1}\u0000`
+    })
+    const inline = s => s
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<em>$2</em>')
+      .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Line by line: runs of "- " / "1. " lines become lists, headings stand
+    // alone, other lines join into paragraphs; blank lines end a paragraph.
+    const out = []
+    let para = [], list = null
+    const endPara = () => { if (para.length) out.push(`<p>${para.join('<br>')}</p>`); para = [] }
+    const endList = () => { if (list) out.push(`<${list.tag}>${list.items.map(i => `<li>${i}</li>`).join('')}</${list.tag}>`); list = null }
+    for (const line of text.split('\n')) {
+      const ul = /^\s*[-*+] (.*)$/.exec(line)
+      const ol = /^\s*\d+[.)] (.*)$/.exec(line)
+      if (ul || ol) {
+        endPara()
+        const tag = ul ? 'ul' : 'ol'
+        if (list && list.tag !== tag) endList()
+        if (!list) list = { tag, items: [] }
+        list.items.push(inline((ul ?? ol)[1]))
+        continue
+      }
+      endList()
+      if (!line.trim()) { endPara(); continue }
+      if (/^\u0000\d+\u0000$/.test(line.trim())) { endPara(); out.push(line.trim()); continue }
+      if (/^#{1,6} /.test(line)) { endPara(); out.push(`<span class="h">${inline(line.replace(/^#{1,6} /, ''))}</span>`); continue }
+      para.push(inline(line))
+    }
+    endList(); endPara()
+    return out.join('').replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[Number(i)])
+  }
+
+  // ---------------------------------------------------------------------------
+  // session status (sidebar, pane headers, status bars)
+  function status(s) {
+    if (!s) return { dot: '', text: '' }
+    const a = s.activity ?? {}
+    if (!s.online) return { dot: '', text: T.offline(s.last_seen_at ? dur(now() - s.last_seen_at * 1000) : '—') }
+    switch (a.state) {
+      case 'tool': return { dot: 'warn pulse', text: `${a.tool?.name ?? T.tool} · ${dur(now() - (a.tool?.since ?? now()))} · ${a.tool?.summary ?? ''}` }
+      case 'working': return { dot: 'ok pulse', text: T.working(dur(now() - (a.since ?? now()))) }
+      case 'waiting': return { dot: 'err pulse', waiting: true, text: a.tool ? T.waitingTool(a.tool.name, a.tool.summary ?? '') : T.waitingInput(a.waiting) }
+      case 'compacting': return { dot: 'info pulse', text: T.compacting }
+      case 'idle': return { dot: 'ok', text: T.idle(dur(now() - (a.since ?? now()))) }
+      case 'ended': return { dot: '', text: T.ended }
+      default: return { dot: 'ok', text: a.observe === 'off' ? T.connectedNoObs : T.connected }
+    }
+  }
+
+  const byPresence = (a, b) => (b.online - a.online) || a.name.localeCompare(b.name, 'es', { numeric: true })
+
+  // Squads: each coordinator with the workers that report to it. Workers whose
+  // coordinator isn't here (or sessions with no role) go in "orphans".
+  function squadsOf(list) {
+    const coords = list.filter(s => s.role === 'coordinator').sort(byPresence)
+    const names = new Set(coords.map(c => c.name))
+    return {
+      squads: coords.map(c => ({ coord: c, workers: list.filter(s => s.role !== 'coordinator' && s.coordinator === c.name).sort(byPresence) })),
+      orphans: list.filter(s => s.role !== 'coordinator' && !names.has(s.coordinator)).sort(byPresence),
+    }
+  }
+
+  function sortedSessions({ archived = false } = {}) {
+    const list = [...sessions.values()].filter(s => !s.deleted && !!s.archived_at === archived)
+    const { squads, orphans } = squadsOf(list)
+    return [...squads.flatMap(q => [q.coord, ...q.workers]), ...orphans]
+  }
+
+  // Which squads are unfolded in the sidebar (remembered per browser).
+  const squadOpen = (() => { try { return JSON.parse(store.get('squadraSquads') || '{}') } catch { return {} } })()
+
+  // ---------------------------------------------------------------------------
+  // ChatView: one session's conversation. Used by mosaic panes and the full view.
+  class ChatView {
+    constructor(name, { full = false } = {}) {
+      this.name = name
+      this.full = full
+      this.items = []           // sorted by ts
+      this.keys = new Set()     // de-dup
+      this.nextBefore = null
+      this.hasMore = true
+      this.loading = false
+      this.unseen = 0
+      this.openGroups = new Map() // group key -> user choice
+      this.el = document.createElement('div')
+      this.el.className = 'chat'
+      this.el.innerHTML = `<div class="scroll"><div class="items"></div></div><button class="jump" hidden>${T.jump(0)}</button><div class="status"><span class="dot"></span><span class="txt"></span></div>`
+      this.scrollEl = this.el.querySelector('.scroll')
+      this.itemsEl = this.el.querySelector('.items')
+      this.jumpEl = this.el.querySelector('.jump')
+      this.scrollEl.addEventListener('scroll', () => this.onScroll())
+      this.jumpEl.addEventListener('click', () => this.toBottom())
+      this.itemsEl.addEventListener('toggle', e => {
+        const d = e.target
+        if (d.classList?.contains('tools')) this.openGroups.set(d.dataset.g, d.open)
+      }, true)
+      views.add(this)
+      this.renderStatus()
+      this.loadOlder(true)
+    }
+
+    destroy() { views.delete(this) }
+
+    // The chat was cleared on the server: start over.
+    reset() {
+      this.items = []
+      this.keys = new Set()
+      this.nextBefore = null
+      this.hasMore = true
+      this.unseen = 0
+      this.jumpEl.hidden = true
+      this.render()
+      this.loadOlder(true)
+    }
+
+    key(it) { return it.t === 'message' ? `m${it.id}` : `e${it.id}` }
+
+    add(list, { live = false } = {}) {
+      let added = 0
+      for (const it of list) {
+        const k = this.key(it)
+        if (this.keys.has(k)) continue
+        this.keys.add(k)
+        this.items.push(it)
+        added++
+      }
+      if (!added) return 0
+      this.items.sort((a, b) => a.ts - b.ts || (a.id ?? 0) - (b.id ?? 0))
+      if (live && !this.atBottom()) { this.unseen += added; this.jumpEl.hidden = false; this.jumpEl.textContent = T.jump(this.unseen) }
+      return added
+    }
+
+    accepts(it) {
+      if (it.t === 'event') return it.session === this.name
+      if (it.from === this.name || it.target === this.name) return true
+      return it.target?.startsWith('#') && groups.some(g => g.id === it.target && g.members.includes(this.name))
+    }
+
+    atBottom() { return this.scrollEl.scrollHeight - this.scrollEl.scrollTop - this.scrollEl.clientHeight < 60 }
+    toBottom() { this.scrollEl.scrollTop = this.scrollEl.scrollHeight; this.unseen = 0; this.jumpEl.hidden = true }
+
+    onScroll() {
+      if (this.atBottom()) { this.unseen = 0; this.jumpEl.hidden = true }
+      if (this.scrollEl.scrollTop < 80) this.loadOlder()
+    }
+
+    async loadOlder(first = false) {
+      if (this.loading || !this.hasMore) return
+      this.loading = true
+      try {
+        const q = `/api/timeline?session=${encodeURIComponent(this.name)}&limit=${this.full ? 200 : 120}${this.nextBefore != null ? `&before=${this.nextBefore}` : ''}`
+        const r = await api(q)
+        this.nextBefore = r.next_before
+        this.hasMore = r.has_more && r.items.length > 0
+        const fromBottom = this.scrollEl.scrollHeight - this.scrollEl.scrollTop
+        this.add(r.items)
+        this.render()
+        if (first) this.toBottom()
+        else this.scrollEl.scrollTop = this.scrollEl.scrollHeight - fromBottom // keep the reader in place
+      } catch (e) {
+        if (e.status === 401) return showLogin(T.tokenInvalid)
+      } finally {
+        this.loading = false
+      }
+    }
+
+    live(it) {
+      if (!this.accepts(it)) return false
+      const stick = this.atBottom()
+      if (!this.add([it], { live: true })) return false
+      this.render()
+      if (stick) this.toBottom()
+      return true
+    }
+
+    // --- rendering ---------------------------------------------------------------
+    render() {
+      const html = []
+      if (this.hasMore) html.push(`<div class="older">${this.loading ? T.loading : T.scrollMore}</div>`)
+      else {
+        const cleared = sessions.get(this.name)?.cleared_at
+        const when = cleared ? new Date(cleared).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : ''
+        if (this.items.length === 0) html.push(`<div class="older">${cleared ? T.clearedEmpty(when) : T.noActivity}</div>`)
+        else html.push(`<div class="older">${cleared ? T.clearedTop(when) : T.historyStart}</div>`)
+      }
+
+      const a = sessions.get(this.name)?.activity
+      let group = null
+      const flush = () => { if (group) { html.push(this.renderGroup(group, a)); group = null } }
+      for (const it of this.items) {
+        if (it.t === 'event' && (it.kind === 'tool_start' || it.kind === 'tool_end' || it.kind === 'subagent_start' || it.kind === 'subagent_stop')) {
+          if (!group) group = { key: this.key(it), list: [] }
+          group.list.push(it)
+          continue
+        }
+        if (it.t === 'event' && (it.kind === 'usage' || (it.kind === 'prompt' && it.channel))) continue
+        flush()
+        html.push(this.renderItem(it))
+      }
+      flush()
+      this.itemsEl.innerHTML = html.join('')
+    }
+
+    renderItem(it) {
+      if (it.t === 'message') {
+        const file = it.file ? `${it.text ? '\n' : ''}📎 ${esc(it.file.name)}` : ''
+        if (it.system) return `<div class="sysline notice">${esc(it.text)}<div class="t">${hhmm(it.ts)} · ${T.serverNotice}</div></div>`
+        if (it.from === this.name) {
+          return `<div class="sent"><div class="h">→ <b>${esc(it.target)}</b> · ${hhmm(it.ts)}${it.edited_at ? ' · editado' : ''}</div><div class="x">${esc(it.text ?? '')}${file}</div></div>`
+        }
+        return `<div class="row-user"><div class="bubble-head"><b>${esc(it.from)}</b>${it.target.startsWith('#') ? T.inGroup(esc(it.target)) : ''} · ${hhmm(it.ts)}</div><div class="bubble in">${esc(it.text ?? '')}${file}</div></div>`
+      }
+      switch (it.kind) {
+        case 'prompt': return `<div class="row-user"><div class="bubble-head"><b>${T.you}</b> · ${hhmm(it.ts)}</div><div class="bubble">${esc(it.text)}</div></div>`
+        case 'text': return `<div class="assistant">${md(it.text)}</div>`
+        case 'stop': return `<div class="divider">${T.turnEnded} · ${hhmm(it.ts)}${it.background_tasks ? ` · ${T.background(it.background_tasks)}` : ''}</div>`
+        case 'notification': return `<div class="sysline warn">⏳ ${esc(it.text || it.type)} · ${hhmm(it.ts)}</div>`
+        case 'compact': return `<div class="sysline">${T.compactingLine} · ${hhmm(it.ts)}</div>`
+        case 'compacted': return `<div class="sysline">${T.compactedLine(it.trigger !== 'manual')} · ${hhmm(it.ts)}${it.summary ? `<details style="text-align:left"><summary>${T.compactSummary}</summary><pre style="white-space:pre-wrap;font:12px/1.4 var(--mono);background:var(--panel-2);padding:8px;border-radius:6px;max-height:300px;overflow:auto">${esc(it.summary)}</pre></details>` : ''}</div>`
+        case 'session_start': return `<div class="sysline">${T.sessionStarted(it.source === 'resume')}${it.cwd ? T.inDir(esc(it.cwd)) : ''} · ${hhmm(it.ts)}</div>`
+        case 'session_end': return `<div class="sysline">${T.sessionEnded}${it.reason ? ` (${esc(it.reason)})` : ''} · ${hhmm(it.ts)}</div>`
+        case 'observe_start': return `<div class="sysline">${T.observing(esc(it.level))} · ${hhmm(it.ts)}</div>`
+        default: return ''
+      }
+    }
+
+    renderGroup(group, activity) {
+      // Pair tool_start/tool_end by tool use id.
+      const tools = []
+      const byId = new Map()
+      for (const ev of group.list) {
+        if (ev.kind === 'tool_start') { const t = { start: ev, end: null }; tools.push(t); if (ev.ref) byId.set(ev.ref, t) }
+        else if (ev.kind === 'tool_end') { const t = ev.ref && byId.get(ev.ref); if (t) t.end = ev; else tools.push({ start: { ...ev, summary: '' }, end: ev }) }
+        else tools.push({ sub: ev })
+      }
+      const real = tools.filter(t => !t.sub)
+      const running = real.filter(t => !t.end)
+      const failed = real.filter(t => t.end && t.end.ok === false)
+      const names = [...new Set(real.map(t => toolName(t.start.tool)))]
+      const waitingId = activity?.state === 'waiting' ? activity.tool?.id : null
+      const st = running.length
+        ? (running.some(t => t.start.ref === waitingId) ? `<span class="res err">${T.waitingPermission}</span>` : `<span class="res run">⏳ ${T.running(running.length)}</span>`)
+        : failed.length ? `<span class="res err">✗ ${T.withErrors(failed.length)}</span>` : '<span class="res ok">✓</span>'
+      const userChoice = this.openGroups.get(group.key)
+      const open = userChoice ?? (running.length > 0)
+      const rows = tools.map(t => t.sub ? `<div class="tool"><div class="line">🤖 <span class="arg">${T.subagent(t.sub.kind === 'subagent_start')}</span></div>${t.sub.text ? `<details><summary>${T.result}</summary><pre>${esc(t.sub.text)}</pre></details>` : ''}</div>` : this.renderTool(t, waitingId)).join('')
+      return `<details class="tools" data-g="${group.key}"${open ? ' open' : ''}>
+        <summary><span>🔧</span><span class="names">${T.tools(real.length)} · ${esc(names.join(', '))}</span><span class="st">${st}</span></summary>
+        <div class="list">${rows}</div></details>`
+    }
+
+    renderTool({ start, end }, waitingId) {
+      let res
+      if (!end && start.ref === waitingId) res = `<span class="res err">${T.permShort}</span>`
+      else if (!end) res = `<span class="res run" data-since="${start.ts}">⏳ ${dur(now() - start.ts)}</span>`
+      else if (end.ok === false) res = `<span class="res err">✗ ${end.interrupted ? T.interrupted : esc(end.summary || T.error)}${end.duration_ms ? ` · ${dur(end.duration_ms)}` : ''}</span>`
+      else res = `<span class="res ok">✓${end.summary ? ` ${esc(end.summary)}` : ''}${end.duration_ms ? ` · ${dur(end.duration_ms)}` : ''}</span>`
+      const det = []
+      if (start.detail) det.push(`<details><summary>${T.input}</summary><pre>${esc(start.detail)}</pre></details>`)
+      if (end?.detail) det.push(`<details><summary>${end.ok === false ? T.error : T.output}</summary><pre>${esc(end.detail)}</pre></details>`)
+      return `<div class="tool"><div class="line"><span>${toolIcon(start.tool)}</span><span class="tn">${esc(toolName(start.tool))}</span>${start.agent ? `<span class="agent">${esc(start.agent)}</span>` : ''}<span class="arg" title="${esc(start.summary)}">${esc(start.summary)}</span>${res}</div>${det.join('')}</div>`
+    }
+
+    renderStatus() {
+      const s = sessions.get(this.name)
+      const st = status(s)
+      const bar = this.el.querySelector('.status')
+      bar.classList.toggle('waiting', !!st.waiting)
+      bar.querySelector('.dot').className = `dot ${st.dot}`
+      bar.querySelector('.txt').textContent = st.text
+      bar.querySelector('.txt').title = st.text
+    }
+
+    tick() {
+      for (const el of this.itemsEl.querySelectorAll('.res.run[data-since]')) el.textContent = `⏳ ${dur(now() - Number(el.dataset.since))}`
+      this.renderStatus()
+    }
+  }
+
+  const ICON = { Bash: '⚙️', Read: '📖', Write: '✏️', Edit: '✏️', MultiEdit: '✏️', NotebookEdit: '✏️', Grep: '🔎', Glob: '🔎', WebFetch: '🌐', WebSearch: '🌐', Task: '🤖', Agent: '🤖', TodoWrite: '📋', Skill: '🧩' }
+  const toolIcon = t => ICON[t] ?? (String(t).startsWith('mcp__') ? '🔌' : '🔧')
+  const toolName = t => String(t ?? '').startsWith('mcp__') ? String(t).split('__').slice(1).join(' › ') : (t ?? '')
+
+  // ---------------------------------------------------------------------------
+  // sidebar
+  const isMachines = r => r.view === 'hosts' || r.view === 'terminal'
+
+  function renderTabs() {
+    const r = currentRoute()
+    const list = sortedSessions()
+    const hostList = [...hosts.values()]
+    const tab = (on, go, icon, label, count) => `<button role="tab" aria-selected="${on}" class="${on ? 'on' : ''}" data-go="${go}"><span>${icon}</span>${label}<span class="count">${count}</span></button>`
+    $('tabs').innerHTML = tab(!isMachines(r), '#/', '▦', T.tabSessions, `${list.filter(s => s.online).length}/${list.length}`) +
+      tab(isMachines(r), '#/hosts', '🖥️', T.machines, `${hostList.filter(h => h.online).length}/${hostList.length}`)
+  }
+
+  function renderNav() {
+    const route = currentRoute()
+    renderTabs()
+    if (isMachines(route)) return renderMachinesNav(route)
+    const list = sortedSessions()
+    const online = list.filter(s => s.online).length
+    let html = `<button class="nav-item ${route.view === 'mosaic' && !route.squad ? 'sel' : ''}" data-go="#/"><span>▦</span><span class="n">${T.allSessions}</span><span class="badge" hidden></span><span class="s">${T.activeOf(online, list.length)}</span></button>`
+    const item = s => {
+      const st = status(s)
+      const n = unread.get(s.name) ?? 0
+      const badge = st.waiting ? '<span class="badge perm">🔐</span>' : n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : '<span></span>'
+      return `<button class="nav-item ${s.role ?? ''} ${route.view === 'session' && route.name === s.name ? 'sel' : ''}" data-go="#/s/${encodeURIComponent(s.name)}" title="${esc(st.text)}">
+        <span class="dot ${st.dot}"></span><span class="n">${esc(s.name)}</span>${badge}<span class="s">${esc(st.text)}</span></button>`
+    }
+    const { squads, orphans } = squadsOf(list)
+    if (squads.length) html += `<div class="nav-label">${T.squads}</div>`
+    for (const { coord, workers } of squads) {
+      const here = route.view === 'session' && workers.some(w => w.name === route.name)
+      const open = here || (squadOpen[coord.name] ?? false)
+      const on = workers.filter(w => w.online).length
+      // Folded: the count chip also carries what needs attention inside.
+      const waiting = workers.some(w => status(w).waiting)
+      const unseen = workers.reduce((t, w) => t + (unread.get(w.name) ?? 0), 0)
+      const alert = open ? '' : waiting ? '<span class="badge perm">🔐</span>' : unseen ? `<span class="badge">${unseen > 99 ? '99+' : unseen}</span>` : ''
+      const squadOn = route.view === 'mosaic' && route.squad === coord.name
+      html += `<div class="squad ${open ? 'open' : ''} ${here || squadOn || (route.view === 'session' && route.name === coord.name) ? 'sel-in' : ''}">
+        <div class="squad-head">${item(coord)}<button class="squad-mosaic ${squadOn ? 'on' : ''}" data-go="#/q/${encodeURIComponent(coord.name)}" title="${esc(T.viewSquadTitle(coord.name))}" aria-label="${esc(T.viewSquadTitle(coord.name))}">▦</button><button class="squad-toggle" data-squad="${esc(coord.name)}" title="${esc(`${T.squadToggle(workers.length, open)} · ${T.squadCount(on, workers.length)}`)}" aria-expanded="${open}"><span>👥 ${workers.length ? `${on}/${workers.length}` : '0'}</span>${alert}<span class="chev">▸</span></button></div>
+        <div class="squad-body">${workers.length ? workers.map(item).join('') : `<div class="squad-empty">${T.noWorkers}</div>`}</div>
+      </div>`
+    }
+    if (orphans.length) html += `<div class="nav-label">${squads.length ? T.noCoordinator : T.workers}</div>${orphans.map(item).join('')}`
+    const archivedCount = sortedSessions({ archived: true }).length
+    html += `<div class="nav-sep"></div><button class="nav-item ${route.view === 'archived' ? 'sel' : ''}" data-go="#/archived"><span>🗄️</span><span class="n">${T.archived}</span><span class="badge" style="background:var(--idle)" ${archivedCount ? '' : 'hidden'}>${archivedCount}</span><span class="s">${T.archivedCount(archivedCount)}</span></button>`
+    $('nav').innerHTML = html
+  }
+
+  // Machines sidebar: every machine, with the sessions opened on it.
+  function renderMachinesNav(route) {
+    const list = [...hosts.values()].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name, LOCALE, { numeric: true }))
+    let html = `<button class="nav-item ${route.view === 'hosts' && !route.host ? 'sel' : ''}" data-go="#/hosts"><span>🖥️</span><span class="n">${T.allMachines}</span><span></span><span class="s">${T.machinesCount(list.filter(h => h.online).length, list.length)}</span></button>`
+    if (list.length) html += `<div class="nav-label">${T.machines}</div>`
+    for (const h of list) {
+      const terms = h.info?.terminals ?? []
+      const sub = h.online ? `${T.hostOnline} · ${T.hostSessions(terms.length)}` : T.hostOffline(h.last_seen_at ? dur(now() - h.last_seen_at) : '—')
+      html += `<button class="nav-item ${route.view === 'hosts' && route.host === h.id ? 'sel' : ''}" data-go="#/h/${encodeURIComponent(h.id)}" title="${esc(sub)}">
+        <span class="dot ${h.online ? 'ok' : ''}"></span><span class="n">${esc(h.name)}</span><span></span><span class="s">${esc(sub)}</span></button>`
+      if (!h.online) continue
+      for (const t of terms) {
+        const s = sessions.get(t.id)
+        const st = s ? status(s) : { dot: '', text: '' }
+        html += `<button class="nav-item sub ${t.role ?? ''} ${route.view === 'terminal' && route.host === h.id && route.term === t.id ? 'sel' : ''}" data-go="#/t/${encodeURIComponent(h.id)}/${encodeURIComponent(t.id)}" title="${esc(st.text)}">
+          <span class="dot ${st.dot}"></span><span class="n">⌨ ${esc(t.name)}</span>${st.waiting ? '<span class="badge perm">🔐</span>' : '<span></span>'}</button>`
+      }
+    }
+    $('nav').innerHTML = html
+  }
+
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-go]')
+    if (b) location.hash = b.dataset.go
+  })
+  $('addHostBtn').addEventListener('click', () => {
+    $('side').classList.remove('open')
+    if (!isMachines(currentRoute())) location.hash = '#/hosts'
+    addMachineDialog()
+  })
+
+  $('nav').addEventListener('click', e => {
+    const t = e.target.closest('[data-squad]')
+    if (t) {
+      const name = t.dataset.squad
+      squadOpen[name] = !t.closest('.squad').classList.contains('open')
+      store.set('squadraSquads', JSON.stringify(squadOpen))
+      return renderNav()
+    }
+    const b = e.target.closest('[data-go]')
+    if (!b) return
+    location.hash = b.dataset.go
+    $('side').classList.remove('open')
+  })
+  $('menuBtn').addEventListener('click', () => $('side').classList.toggle('open'))
+
+  // ---------------------------------------------------------------------------
+  // views
+  let mosaicPanes = new Map() // name -> {pane, view}
+  let sessionView = null
+
+  function currentRoute() {
+    if (location.hash === '#/archived') return { view: 'archived' }
+    if (location.hash === '#/hosts') return { view: 'hosts' }
+    const q = location.hash.match(/^#\/q\/(.+)$/)
+    if (q) return { view: 'mosaic', squad: decodeURIComponent(q[1]) }
+    const h = location.hash.match(/^#\/h\/(.+)$/)
+    if (h) return { view: 'hosts', host: decodeURIComponent(h[1]) }
+    const t = location.hash.match(/^#\/t\/([^/]+)\/(.+)$/)
+    if (t) return { view: 'terminal', host: decodeURIComponent(t[1]), term: decodeURIComponent(t[2]) }
+    const m = location.hash.match(/^#\/s\/(.+)$/)
+    return m ? { view: 'session', name: decodeURIComponent(m[1]) } : { view: 'mosaic' }
+  }
+
+  function roleTag(role) {
+    return role ? `<span class="role-tag ${role}">${role === 'coordinator' ? T.roleCoordinator : T.roleWorker}</span>` : ''
+  }
+
+  function renderTop() {
+    const r = currentRoute()
+    if (r.view === 'mosaic') {
+      const colsSeg = `<span>${T.columns}</span><span class="seg" id="colsSeg">${['auto', '2', '3', '4', '5', '6'].map(n => `<button data-c="${n}" class="${n === cols ? 'on' : ''}">${n === 'auto' ? T.auto : n}</button>`).join('')}</span>`
+      if (r.squad) {
+        const c = sessions.get(r.squad)
+        const ws = sortedSessions().filter(s => s.role !== 'coordinator' && s.coordinator === r.squad)
+        $('topTitle').innerHTML = `<span class="dot ${c ? status(c).dot : ''}"></span>👥 ${esc(T.squadOf(r.squad))}`
+        $('topSub').textContent = T.squadCount(ws.filter(w => w.online).length, ws.length)
+        $('topRight').innerHTML = `${colsSeg}<button class="btn" data-addworker="${esc(r.squad)}" title="${esc(T.addWorkerTo(r.squad))}">${T.addWorker}</button><button class="btn" data-go="#/">${T.backAll}</button>`
+        return
+      }
+      $('topTitle').innerHTML = T.allSessions
+      $('topSub').textContent = ''
+      $('topRight').innerHTML = `<span>${T.columns}</span><span class="seg" id="colsSeg">${['auto', '2', '3', '4', '5', '6'].map(n => `<button data-c="${n}" class="${n === cols ? 'on' : ''}">${n === 'auto' ? T.auto : n}</button>`).join('')}</span>`
+    } else if (r.view === 'hosts') {
+      const h = r.host && hosts.get(r.host)
+      $('topTitle').innerHTML = h ? `<span class="dot ${h.online ? 'ok' : ''}"></span>${esc(h.name)}` : T.allMachines
+      $('topSub').textContent = h ? hostLine(h) : T.machinesSub
+      $('topRight').innerHTML = `<button class="btn" data-hact="add">${T.addMachine}</button><button class="btn primary" data-hact="new">${T.newSession}</button>`
+    } else if (r.view === 'terminal') {
+      const h = hosts.get(r.host)
+      const t = h?.info?.terminals?.find(x => x.id === r.term)
+      const s = sessions.get(r.term)
+      $('topTitle').innerHTML = `<span class="dot ${s ? status(s).dot : ''}"></span>⌨ ${esc(r.term)} ${roleTag(t?.role ?? s?.role)}`
+      $('topSub').textContent = [h ? T.onHost(h.name) : '', t?.folder ?? ''].filter(Boolean).join(' · ')
+      const acts = []
+      if (s) acts.push(`<button class="btn" data-go="#/s/${encodeURIComponent(r.term)}">${T.chat}</button>`)
+      acts.push(`<button class="btn" data-tact="redraw">${T.redraw}</button>`)
+      if (t && h?.online) acts.push(`<button class="btn danger" data-tact="kill">${T.closeSession}</button>`)
+      acts.push(`<button class="btn" data-go="#/h/${encodeURIComponent(r.host)}">${T.back}</button>`)
+      $('topRight').innerHTML = acts.join('')
+    } else if (r.view === 'archived') {
+      $('topTitle').innerHTML = T.archivedTitle
+      $('topSub').textContent = T.archivedSub
+      $('topRight').innerHTML = `<button class="btn" data-go="#/">${T.backAll}</button>`
+    } else {
+      const s = sessions.get(r.name)
+      const a = s?.activity ?? {}
+      $('topTitle').innerHTML = `<span class="dot ${status(s).dot}"></span>${esc(r.name)} ${roleTag(s?.role)}${s?.archived_at ? ' <span class="role-tag" style="background:var(--panel-2);color:var(--muted)">${T.archivedTag}</span>' : ''}`
+      $('topSub').textContent = [a.cwd, a.context_tokens ? T.context(kfmt(a.context_tokens)) + (a.context_pct != null ? ` (${T.contextPct(a.context_pct)})` : '') : '', s?.role === 'worker' && s.coordinator ? T.coordinatorOf(s.coordinator) : ''].filter(Boolean).join(' · ')
+      const acts = []
+      const where = terminalOf(r.name)
+      if (where) acts.push(`<button class="btn" data-go="#/t/${encodeURIComponent(where.host.id)}/${encodeURIComponent(r.name)}">${T.terminal}</button>`)
+      if (s) {
+        acts.push(`<button class="btn" data-act="clear" data-s="${esc(s.name)}">${T.clearChat}</button>`)
+        if (!s.online) acts.push(s.archived_at
+          ? `<button class="btn" data-act="unarchive" data-s="${esc(s.name)}">${T.unarchive}</button>`
+          : `<button class="btn" data-act="archive" data-s="${esc(s.name)}">${T.archive}</button>`)
+        if (!s.online) acts.push(`<button class="btn danger" data-act="delete" data-s="${esc(s.name)}">${T.delete}</button>`)
+      }
+      acts.push(`<button class="btn" data-go="${s?.archived_at ? '#/archived' : '#/'}">${s?.archived_at ? T.backArchived : T.backAll}</button>`)
+      $('topRight').innerHTML = acts.join('')
+    }
+  }
+
+  $('topRight').addEventListener('click', e => {
+    const c = e.target.closest('[data-c]')
+    if (c) { cols = c.dataset.c; store.set('squadraCols', cols); applyCols(); renderTop() }
+    const go = e.target.closest('[data-go]')
+    if (go) location.hash = go.dataset.go
+    const act = e.target.closest('[data-act]')
+    if (act) runAction(act.dataset.act, act.dataset.s)
+    const hact = e.target.closest('[data-hact]')
+    if (hact) hostAction(hact.dataset.hact, hact.dataset.h)
+    const aw = e.target.closest('[data-addworker]')
+    if (aw) addWorkerTo(aw.dataset.addworker)
+    const tact = e.target.closest('[data-tact]')
+    if (tact) {
+      const r = currentRoute()
+      if (tact.dataset.tact === 'redraw') termView?.refresh()
+      if (tact.dataset.tact === 'kill') hostAction('kill', r.host, r.term)
+    }
+  })
+
+  function paneHead(s) {
+    const a = s.activity ?? {}
+    return `<span class="dot ${status(s).dot}"></span><button class="title" data-go="#/s/${encodeURIComponent(s.name)}">${esc(s.name)}</button>${roleTag(s.role)}
+      <span class="meta" title="${esc(a.cwd ?? '')}">${esc(base(a.cwd))}</span>${ctxBadge(a)}
+      <button class="more" data-menu="${esc(s.name)}" title="${esc(T.actions(s.name))}" aria-label="${esc(T.actions(s.name))}">⋯</button>`
+  }
+
+  // Context gauge: tokens and % of the auto-compact point; amber from 60%, red from 80%.
+  function ctxBadge(a) {
+    if (!a.context_tokens) return ''
+    const pct = a.context_pct
+    const cls = pct == null ? '' : pct >= 80 ? 'hot' : pct >= 60 ? 'warm' : ''
+    const title = pct != null ? T.contextTitle(pct, kfmt(a.context_tokens), kfmt(a.compact_at ?? 0)) : T.context(kfmt(a.context_tokens))
+    return `<span class="ctx ${cls}" title="${esc(title)}">${kfmt(a.context_tokens)}${pct != null ? ` · ${pct}%` : ' tok'}</span>`
+  }
+
+  function paneClass(s) {
+    const st = status(s)
+    return `pane ${s.role ?? ''} ${st.waiting ? 'attention' : ''} ${s.online ? '' : 'offline'}`
+  }
+
+  function applyCols() {
+    const box = $('mosaic')
+    box.classList.toggle('fixed', cols !== 'auto')
+    if (cols !== 'auto') box.style.setProperty('--cols', cols)
+  }
+
+  // A heading row per squad (all-sessions mosaic only), reused across rebuilds.
+  const squadRows = new Map() // key -> element
+  function squadRow(key, coord, workers) {
+    let el = squadRows.get(key)
+    if (!el) { el = document.createElement('div'); squadRows.set(key, el) }
+    if (!coord) {
+      el.className = 'squad-row orphans'
+      el.innerHTML = `<span class="n">${T.noCoordinator}</span>`
+      return el
+    }
+    const on = workers.filter(w => w.online).length
+    el.className = 'squad-row'
+    // Rewritten only when something changed, so a click on its buttons is never lost.
+    const html = `<span class="dot ${status(coord).dot}"></span><span class="n">👥 ${esc(T.squadOf(coord.name))}</span><span class="m">${esc(T.squadCount(on, workers.length))}</span>
+      <span class="acts"><button class="btn" data-go="#/q/${encodeURIComponent(coord.name)}" title="${esc(T.viewSquadTitle(coord.name))}">${T.viewSquad}</button><button class="btn" data-addworker="${esc(coord.name)}" title="${esc(T.addWorkerTo(coord.name))}">${T.addWorker}</button></span>`
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html }
+    return el
+  }
+
+  function buildMosaic() {
+    const box = $('mosaic')
+    applyCols()
+    const squad = currentRoute().squad
+    const all = sortedSessions()
+    const list = squad ? all.filter(s => s.name === squad || (s.role !== 'coordinator' && s.coordinator === squad)) : all
+    // The order on screen: in the full mosaic, each squad under its heading row.
+    const order = []
+    if (squad) order.push(...list.map(s => ({ s })))
+    else {
+      const { squads, orphans } = squadsOf(all)
+      for (const q of squads) order.push({ row: squadRow(`q:${q.coord.name}`, q.coord, q.workers) }, { s: q.coord }, ...q.workers.map(s => ({ s })))
+      if (orphans.length) order.push(...(squads.length ? [{ row: squadRow('orphans') }] : []), ...orphans.map(s => ({ s })))
+    }
+    const rowsUsed = new Set(order.filter(o => o.row).map(o => o.row))
+    for (const [k, el] of squadRows) if (!rowsUsed.has(el)) { el.remove(); squadRows.delete(k) }
+    // keep existing panes (and their scroll/history), add new, drop deleted
+    const visible = new Set(list.map(s => s.name))
+    for (const [name, p] of mosaicPanes) if (!visible.has(name)) { p.view.destroy(); p.pane.remove(); mosaicPanes.delete(name) }
+    if (!list.length) {
+      const arch = sortedSessions({ archived: true }).length
+      box.innerHTML = `<div class="mosaic-empty">${squad ? esc(T.squadEmpty(squad)) : T.mosaicEmpty(arch)}</div>`
+      squadRows.clear()
+      return
+    }
+    box.querySelector('.mosaic-empty')?.remove()
+    // Moving a node in the DOM resets its scroll: remember where each chat was.
+    const scroll = new Map([...mosaicPanes].map(([n, p]) => [n, { bottom: p.view.atBottom(), top: p.view.scrollEl.scrollTop }]))
+    let prev = null
+    for (const { s, row } of order) {
+      if (row) {
+        const expected = prev ? prev.nextSibling : box.firstChild
+        if (expected !== row) box.insertBefore(row, expected)
+        prev = row
+        continue
+      }
+      let p = mosaicPanes.get(s.name)
+      if (!p) {
+        const pane = document.createElement('section')
+        pane.innerHTML = `<div class="pane-head"></div>`
+        const view = new ChatView(s.name)
+        pane.appendChild(view.el)
+        p = { pane, view }
+        mosaicPanes.set(s.name, p)
+      }
+      p.pane.className = paneClass(s)
+      p.pane.querySelector('.pane-head').innerHTML = paneHead(s)
+      // Only move panes that are out of order.
+      const expected = prev ? prev.nextSibling : box.firstChild
+      if (expected !== p.pane) box.insertBefore(p.pane, expected)
+      prev = p.pane
+    }
+    for (const [n, st] of scroll) {
+      const p = mosaicPanes.get(n)
+      if (!p) continue
+      if (st.bottom) p.view.toBottom(); else p.view.scrollEl.scrollTop = st.top
+    }
+  }
+
+  // Counts and dots in the squad headings, without rebuilding the mosaic.
+  function refreshSquadRows() {
+    if (!squadRows.size) return
+    const { squads } = squadsOf(sortedSessions())
+    for (const q of squads) if (squadRows.has(`q:${q.coord.name}`)) squadRow(`q:${q.coord.name}`, q.coord, q.workers)
+  }
+
+  $('mosaic').addEventListener('click', e => {
+    const aw = e.target.closest('[data-addworker]')
+    if (aw) return addWorkerTo(aw.dataset.addworker)
+    const m = e.target.closest('[data-menu]')
+    if (m) return openMenu(m, m.dataset.menu)
+    const b = e.target.closest('[data-go]')
+    if (b) location.hash = b.dataset.go
+  })
+
+  // ---------------------------------------------------------------------------
+  // actions: clear chat, archive / unarchive, delete
+  let menuEl = null
+  function closeMenu() { menuEl?.remove(); menuEl = null }
+  document.addEventListener('click', e => { if (menuEl && !e.target.closest('.menu') && !e.target.closest('[data-menu], [data-hmenu]')) closeMenu() })
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); document.querySelector('.modal-bg')?.querySelector('[data-cancel]')?.click() } })
+
+  function openMenu(anchor, name) {
+    closeMenu()
+    const s = sessions.get(name)
+    if (!s) return
+    const off = s.online
+    menuEl = document.createElement('div')
+    menuEl.className = 'menu'
+    const where = terminalOf(name)
+    menuEl.innerHTML = `
+      <button data-go="#/s/${encodeURIComponent(name)}">${T.openChat}</button>
+      ${where ? `<button data-go="#/t/${encodeURIComponent(where.host.id)}/${encodeURIComponent(name)}">${T.terminal}</button>` : ''}
+      ${s.role === 'coordinator' ? `<button data-go="#/q/${encodeURIComponent(name)}">${T.viewSquad}</button><button data-act="addworker">${esc(T.addWorkerTo(name))}</button>` : ''}
+      <button data-act="clear">${T.clearChat}</button>
+      <button data-act="archive" ${off ? 'disabled' : ''}>${T.archive}</button>
+      <button data-act="delete" class="danger" ${off ? 'disabled' : ''}>${T.deleteSession}</button>
+      ${off ? `<div class="hint">${T.offlineHint}</div>` : ''}`
+    document.body.appendChild(menuEl)
+    const r = anchor.getBoundingClientRect()
+    const w = menuEl.offsetWidth
+    menuEl.style.top = `${Math.min(r.bottom + 4, innerHeight - menuEl.offsetHeight - 8)}px`
+    menuEl.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`
+    menuEl.addEventListener('click', e => {
+      const b = e.target.closest('button')
+      if (!b || b.disabled) return
+      closeMenu()
+      if (b.dataset.go) location.hash = b.dataset.go
+      else runAction(b.dataset.act, name)
+    })
+  }
+
+  function confirmDialog({ title, text, confirm, danger = false, run }) {
+    const bg = document.createElement('div')
+    bg.className = 'modal-bg'
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><p>${text}</p><div class="err"></div>
+      <div class="actions"><button class="btn" data-cancel>${T.cancel}</button><button class="btn primary ${danger ? 'danger' : ''}" data-ok>${esc(confirm)}</button></div></div>`
+    document.body.appendChild(bg)
+    const close = () => bg.remove()
+    bg.addEventListener('click', e => { if (e.target === bg) close() })
+    bg.querySelector('[data-cancel]').addEventListener('click', close)
+    const ok = bg.querySelector('[data-ok]')
+    ok.focus()
+    ok.addEventListener('click', async () => {
+      ok.disabled = true
+      try { await run(); close() } catch (err) {
+        bg.querySelector('.err').textContent = err.message
+        ok.disabled = false
+      }
+    })
+  }
+
+  async function post(action, session) {
+    const r = await fetch(`/api/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ session }),
+    })
+    if (r.status === 401) { showLogin(T.tokenInvalid); throw new Error(T.unauthorized) }
+    const j = await r.json()
+    if (!j.ok) throw new Error(j.parameters?.reason === 'session_online' ? T.sessionOnline : j.description)
+    return j.result
+  }
+
+  function runAction(action, name) {
+    if (action === 'addworker') return addWorkerTo(name)
+    const s = sessions.get(name)
+    const who = `<b>${esc(name)}</b>`
+    if (action === 'clear') {
+      return confirmDialog({
+        title: T.clearTitle(name),
+        text: T.clearText(who, s?.online),
+        confirm: T.clearChat,
+        run: () => post('clear', name),
+      })
+    }
+    if (action === 'archive') {
+      return confirmDialog({
+        title: T.archiveTitle(name),
+        text: T.archiveText(who),
+        confirm: T.archive,
+        run: () => post('archive', name),
+      })
+    }
+    if (action === 'unarchive') return post('unarchive', name).catch(err => alertBox(err.message))
+    if (action === 'delete') {
+      return confirmDialog({
+        title: T.deleteTitle(name),
+        text: T.deleteText(who, esc(name)),
+        confirm: T.delete,
+        danger: true,
+        run: async () => {
+          await post('delete', name)
+          if (currentRoute().name === name) location.hash = s?.archived_at ? '#/archived' : '#/'
+        },
+      })
+    }
+  }
+
+  function alertBox(text) {
+    confirmDialog({ title: T.couldNotComplete, text: esc(text), confirm: T.ok, run: async () => {} })
+  }
+
+  // ---------------------------------------------------------------------------
+  // archived view
+  function renderArchived() {
+    const list = sortedSessions({ archived: true })
+    $('archived').innerHTML = `<div class="arch-list">${list.length ? list.map(s => `
+      <div class="arch ${s.role ?? ''}">
+        <div class="info">
+          <div class="n"><span class="dot ${status(s).dot}"></span>${esc(s.name)} ${roleTag(s.role)}</div>
+          <div class="m">${T.archivedAt(new Date(s.archived_at).toLocaleString(LOCALE))} · ${esc(status(s).text)}${s.activity?.cwd ? ` · ${esc(s.activity.cwd)}` : ''}</div>
+        </div>
+        <div class="acts">
+          <button class="btn" data-go="#/s/${encodeURIComponent(s.name)}">${T.viewChat}</button>
+          <button class="btn" data-act="unarchive" data-s="${esc(s.name)}">${T.unarchive}</button>
+          <button class="btn danger" data-act="delete" data-s="${esc(s.name)}" ${s.online ? 'disabled' : ''}>${T.delete}</button>
+        </div>
+      </div>`).join('') : `<div class="mosaic-empty">${T.noArchived}</div>`}</div>`
+  }
+
+  $('archived').addEventListener('click', e => {
+    const go = e.target.closest('[data-go]')
+    if (go) location.hash = go.dataset.go
+    const act = e.target.closest('[data-act]')
+    if (act && !act.disabled) runAction(act.dataset.act, act.dataset.s)
+  })
+
+  function clearMosaic() {
+    for (const p of mosaicPanes.values()) p.view.destroy()
+    mosaicPanes.clear()
+    $('mosaic').innerHTML = ''
+  }
+
+  function route() {
+    const r = currentRoute()
+    closeMenu()
+    $('archived').hidden = r.view !== 'archived'
+    $('hosts').hidden = r.view !== 'hosts'
+    $('terminal').hidden = r.view !== 'terminal'
+    if (r.view !== 'terminal' && termView) { termView.destroy(); termView = null; $('terminal').innerHTML = '' }
+    if (r.view === 'hosts' || r.view === 'terminal') {
+      if (sessionView) { sessionView.destroy(); sessionView = null; $('session').innerHTML = '' }
+      clearMosaic()
+      $('session').hidden = true
+      $('mosaic').hidden = true
+      if (r.view === 'hosts') renderHosts(r.host)
+      else if (!termView || termView.host !== r.host || termView.term !== r.term) {
+        termView?.destroy()
+        termView = new TermView(r.host, r.term, $('terminal'))
+      }
+    } else if (r.view === 'mosaic') {
+      if (sessionView) { sessionView.destroy(); sessionView = null; $('session').innerHTML = '' }
+      $('session').hidden = true
+      $('mosaic').hidden = false
+      buildMosaic()
+    } else if (r.view === 'archived') {
+      if (sessionView) { sessionView.destroy(); sessionView = null; $('session').innerHTML = '' }
+      clearMosaic()
+      $('session').hidden = true
+      $('mosaic').hidden = true
+      renderArchived()
+    } else {
+      clearMosaic()
+      $('mosaic').hidden = true
+      $('session').hidden = false
+      if (!sessionView || sessionView.name !== r.name) {
+        sessionView?.destroy()
+        sessionView = new ChatView(r.name, { full: true })
+        $('session').innerHTML = ''
+        $('session').appendChild(sessionView.el)
+      }
+      unread.delete(r.name)
+    }
+    renderTop()
+    renderNav()
+  }
+  window.addEventListener('hashchange', route)
+
+  // ---------------------------------------------------------------------------
+  // machines (squadra-host): list, add, rename, disconnect, open and close sessions
+  const hostListeners = new Set()
+
+  // The machine where a session runs, if it was opened from here.
+  function terminalOf(name) {
+    for (const h of hosts.values()) {
+      const t = h.online && h.info?.terminals?.find(x => x.id === name)
+      if (t) return { host: h, term: t }
+    }
+    return null
+  }
+
+  async function postJson(path, body) {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    })
+    if (r.status === 401) { showLogin(T.tokenInvalid); throw new Error(T.unauthorized) }
+    const j = await r.json()
+    if (!j.ok) throw new Error(j.parameters?.reason === 'name_in_use' ? T.nameTaken(body?.spec?.name ?? '') : j.description.replace(/^(Bad Request|Conflict|Forbidden): /, ''))
+    return j.result
+  }
+
+  function hostLine(h) {
+    const i = h.info ?? {}
+    return [i.hostname && i.hostname !== h.name ? i.hostname : '', [i.platform, i.arch].filter(Boolean).join(' '), i.claude ? `Claude ${i.claude.replace(/\s*\(Claude Code\)/, '')}` : '', i.tmux, i.version ? `host v${i.version}` : ''].filter(Boolean).join(' · ')
+  }
+
+  function renderHosts(only) {
+    const list = [...hosts.values()].filter(h => !only || h.id === only).sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name, LOCALE, { numeric: true }))
+    if (!list.length) { $('hosts').innerHTML = `<div class="host-list"><div class="mosaic-empty">${T.noMachines}</div></div>`; return }
+    $('hosts').innerHTML = `<div class="host-list">${list.map(h => {
+      const i = h.info ?? {}
+      const terms = i.terminals ?? []
+      const rows = terms.map(t => {
+        const s = sessions.get(t.id)
+        return `<div class="term-row">
+          <span class="dot ${s ? status(s).dot : ''}" title="${esc(s ? status(s).text : '')}"></span><span class="n">${esc(t.name)}</span>${roleTag(t.role)}
+          <span class="m" title="${esc(t.folder ?? '')}">${esc(t.folder ?? '')}${t.role === 'worker' && t.coordinator ? ` · ${esc(T.coordinatorOf(t.coordinator))}` : ''}</span>
+          <span class="acts">
+            ${h.online ? `<button class="btn" data-go="#/t/${encodeURIComponent(h.id)}/${encodeURIComponent(t.id)}">${T.terminal}</button>` : ''}
+            ${s ? `<button class="btn" data-go="#/s/${encodeURIComponent(t.id)}">${T.chat}</button>` : ''}
+            ${h.online ? `<button class="btn danger" data-hact="kill" data-h="${esc(h.id)}" data-t="${esc(t.id)}">${T.closeSession}</button>` : ''}
+          </span></div>`
+      }).join('')
+      return `<div class="host ${h.online ? '' : 'offline'}">
+        <div class="host-head"><span class="dot ${h.online ? 'ok' : ''}"></span><span class="n">${esc(h.name)}</span>
+          <span class="m">${h.online ? T.hostOnline : T.hostOffline(h.last_seen_at ? dur(now() - h.last_seen_at) : '—')}${hostLine(h) ? ` · ${esc(hostLine(h))}` : ''}</span>
+          <span class="acts">${h.online ? `<button class="btn" data-hact="new" data-h="${esc(h.id)}">${T.newSession}</button>` : ''}<button class="more" data-hmenu="${esc(h.id)}" aria-label="${esc(T.actions(h.name))}">⋯</button></span></div>
+        <div class="host-meta"><span>${T.folders}: ${i.folders?.length ? i.folders.map(f => `<code>${esc(f)}</code>`).join(' ') : T.noFolders}</span>${i.max_sessions ? `<span>${T.maxSessions(i.max_sessions)}</span>` : ''}<span>${i.allow_input === false ? T.typingOff : T.typingOn}</span></div>
+        <div class="host-terms">${rows || `<div class="host-empty">${T.noTerminals}</div>`}</div>
+      </div>`
+    }).join('')}</div>`
+  }
+
+  $('hosts').addEventListener('click', e => {
+    const m = e.target.closest('[data-hmenu]')
+    if (m) return openHostMenu(m, m.dataset.hmenu)
+    const go = e.target.closest('[data-go]')
+    if (go) location.hash = go.dataset.go
+    const act = e.target.closest('[data-hact]')
+    if (act) hostAction(act.dataset.hact, act.dataset.h, act.dataset.t)
+  })
+
+  function openHostMenu(anchor, id) {
+    closeMenu()
+    const h = hosts.get(id)
+    if (!h) return
+    menuEl = document.createElement('div')
+    menuEl.className = 'menu'
+    menuEl.innerHTML = `<button data-a="rename">${T.rename}</button><button data-a="disconnect" class="danger">${T.disconnect}</button>`
+    document.body.appendChild(menuEl)
+    const r = anchor.getBoundingClientRect()
+    const w = menuEl.offsetWidth
+    menuEl.style.top = `${Math.min(r.bottom + 4, innerHeight - menuEl.offsetHeight - 8)}px`
+    menuEl.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`
+    menuEl.addEventListener('click', e => {
+      const b = e.target.closest('button')
+      if (!b) return
+      closeMenu()
+      hostAction(b.dataset.a, id)
+    })
+  }
+
+  // A dialog with arbitrary content; returns its root and a close function.
+  function dialog(html, { wide = false } = {}) {
+    const bg = document.createElement('div')
+    bg.className = 'modal-bg'
+    bg.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${html}</div>`
+    document.body.appendChild(bg)
+    const close = () => { bg.remove(); bg.onclose?.() }
+    bg.addEventListener('click', e => { if (e.target === bg || e.target.closest('[data-cancel]')) close() })
+    return { el: bg, close }
+  }
+
+  function hostAction(action, id, term) {
+    const h = hosts.get(id)
+    if (action === 'add') return addMachineDialog()
+    if (action === 'new') return newSessionDialog(id)
+    if (action === 'rename' && h) {
+      const d = dialog(`<h3>${T.renameTitle}</h3><label class="field"><span>${T.name}</span><input type="text" maxlength="40" value="${esc(h.name)}"></label><div class="err" style="color:var(--err);font-size:13px;min-height:1.2em"></div>
+        <div class="actions"><button class="btn" data-cancel>${T.cancel}</button><button class="btn primary" data-ok>${T.save}</button></div>`)
+      const input = d.el.querySelector('input')
+      input.focus(); input.select()
+      const save = async () => {
+        try { await postJson('/api/hosts/rename', { host: id, name: input.value }); d.close() } catch (err) { d.el.querySelector('.err').textContent = err.message }
+      }
+      d.el.querySelector('[data-ok]').addEventListener('click', save)
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') save() })
+      return
+    }
+    if (action === 'disconnect' && h) {
+      return confirmDialog({ title: T.disconnectTitle(h.name), text: T.disconnectText(esc(h.name)), confirm: T.disconnect, danger: true, run: () => postJson('/api/hosts/remove', { host: id }) })
+    }
+    if (action === 'kill') {
+      return confirmDialog({
+        title: T.closeSessionTitle(term), text: T.closeSessionText(esc(term), esc(h?.name ?? id)), confirm: T.closeSession, danger: true,
+        run: async () => {
+          await postJson('/api/terminals/kill', { host: id, term })
+          if (currentRoute().view === 'terminal') location.hash = '#/hosts'
+        },
+      })
+    }
+  }
+
+  function addMachineDialog() {
+    const d = dialog(`<h3>${T.addTitle}</h3><p>${T.addIntro}</p>
+      <div data-step="1">
+        <label class="field"><span>${T.machineName}</span><input type="text" maxlength="40" placeholder="${esc(T.machineNameHint)}"></label>
+        <label class="check"><input type="checkbox" checked> <span>${T.configurePlugin}</span></label>
+        <div class="err" style="color:var(--err);font-size:13px;min-height:1.2em"></div>
+        <div class="actions"><button class="btn" data-cancel>${T.cancel}</button><button class="btn primary" data-gen>${T.generate}</button></div>
+      </div>
+      <div data-step="2" hidden>
+        <p style="margin-bottom:8px">${T.runThis}</p>
+        <pre class="cmd"></pre>
+        <div class="actions" style="justify-content:space-between;align-items:center"><span class="t valid"></span><button class="btn" data-copy>${T.copy}</button></div>
+        <div class="wait"><span class="dot info pulse"></span><span class="w">${T.waitingMachine}</span></div>
+        <div class="actions"><button class="btn" data-cancel>${T.done}</button><button class="btn primary" data-newsession hidden>${T.newSession}</button></div>
+      </div>`, { wide: true })
+    const input = d.el.querySelector('input[type=text]')
+    input.focus()
+    let joined = null
+    const known = new Set(hosts.keys())
+    const listener = h => {
+      if (h.removed || known.has(h.id) || !h.online) return
+      joined = h
+      d.el.querySelector('.wait').innerHTML = `<span class="dot ok"></span><span>${T.machineJoined(esc(h.name))}</span>`
+      d.el.querySelector('[data-newsession]').hidden = false
+    }
+    d.el.onclose = () => hostListeners.delete(listener)
+    d.el.querySelector('[data-gen]').addEventListener('click', async e => {
+      e.target.disabled = true
+      try {
+        const r = await postJson('/api/hosts/enroll', { name: input.value.trim(), configure_plugin: d.el.querySelector('input[type=checkbox]').checked })
+        d.el.querySelector('[data-step="1"]').hidden = true
+        d.el.querySelector('[data-step="2"]').hidden = false
+        d.el.querySelector('.cmd').textContent = r.command
+        d.el.querySelector('.valid').textContent = T.codeValid(hhmm(r.expires_at))
+        hostListeners.add(listener)
+        d.el.querySelector('[data-copy]').addEventListener('click', async ev => {
+          try { await navigator.clipboard.writeText(r.command); ev.target.textContent = T.copied } catch {
+            const range = document.createRange(); range.selectNodeContents(d.el.querySelector('.cmd'))
+            getSelection().removeAllRanges(); getSelection().addRange(range)
+          }
+        })
+        d.el.querySelector('[data-newsession]').addEventListener('click', () => { d.close(); location.hash = '#/hosts'; newSessionDialog(joined?.id) })
+      } catch (err) {
+        d.el.querySelector('.err').textContent = err.message
+        e.target.disabled = false
+      }
+    })
+  }
+
+  // A worker for this coordinator's squad, by default on the coordinator's machine.
+  function addWorkerTo(coord) {
+    newSessionDialog(terminalOf(coord)?.host.id, { coordinator: coord })
+  }
+
+  function newSessionDialog(hostId, preset = {}) {
+    const online = [...hosts.values()].filter(h => h.online)
+    if (!online.length) return alertBox(T.noOnlineMachines)
+    const coords = [...new Set(['coord', ...[...sessions.values()].filter(s => s.role === 'coordinator').map(s => s.name)])]
+    const hasCoord = !!preset.coordinator || [...sessions.values()].some(s => s.role === 'coordinator' && !s.deleted)
+    const d = dialog(`<h3>${preset.coordinator ? esc(T.addWorkerTo(preset.coordinator)) : T.newSessionTitle}</h3>
+      <label class="field"><span>${T.machine}</span><select name="host">${online.map(h => `<option value="${esc(h.id)}" ${h.id === hostId ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select></label>
+      <div class="row2">
+        <label class="field"><span>${T.role}</span><select name="role"><option value="worker" ${hasCoord ? 'selected' : ''}>${T.roleWorker}</option><option value="coordinator" ${hasCoord ? '' : 'selected'}>${T.roleCoordinator}</option></select></label>
+        <label class="field"><span>${T.sessionName}</span><input type="text" name="name" maxlength="32" pattern="[A-Za-z0-9_-]{1,32}" autocomplete="off"></label>
+      </div>
+      <label class="field" data-only="worker"><span>${T.coordinatorName}</span><input type="text" name="coordinator" list="coordList" maxlength="32" value="${esc(preset.coordinator ?? coords.find(c => sessions.get(c)?.role === 'coordinator') ?? 'coord')}"><datalist id="coordList">${coords.map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
+      <div class="row2">
+        <label class="field"><span>${T.folder}</span><select name="folder"></select></label>
+        <label class="field"><span>${T.subfolder}</span><input type="text" name="sub" placeholder="${esc(T.subfolderHint)}" autocomplete="off"></label>
+      </div>
+      <label class="field"><span>${T.compact}</span><select name="compact">
+        <option value="600000" selected>${T.compactRec}</option>
+        <option value="">${T.compactDefault}</option>
+        ${[300, 400, 500, 700, 800].map(k => `<option value="${k * 1000}">${T.compactK(k)}</option>`).join('')}
+      </select><span class="hint">${T.compactHint}</span></label>
+      <label class="check"><input type="checkbox" name="resume"> <span>${T.resume}</span></label>
+      <div class="err" style="color:var(--err);font-size:13px;min-height:1.2em"></div>
+      <div class="actions"><button class="btn" data-cancel>${T.cancel}</button><button class="btn primary" data-ok>${T.open}</button></div>`, { wide: true })
+    const f = name => d.el.querySelector(`[name=${name}]`)
+    const suggestName = () => {
+      if (f('role').value === 'coordinator') return sessions.has('coord') && sessions.get('coord').online ? '' : 'coord'
+      for (let i = 1; ; i++) if (!sessions.get(`worker${i}`)?.online && !terminalOf(`worker${i}`)) return `worker${i}`
+    }
+    const sync = () => {
+      d.el.querySelector('[data-only=worker]').hidden = f('role').value !== 'worker'
+      const h = hosts.get(f('host').value)
+      const folders = h?.info?.folders ?? []
+      f('folder').innerHTML = folders.length ? folders.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('') : `<option value="">—</option>`
+    }
+    f('role').addEventListener('change', () => { f('name').value = suggestName(); sync() })
+    f('host').addEventListener('change', sync)
+    f('name').value = suggestName()
+    sync()
+    f('name').focus()
+    const ok = d.el.querySelector('[data-ok]')
+    ok.addEventListener('click', async () => {
+      const err = d.el.querySelector('.err')
+      err.textContent = ''
+      const host = f('host').value
+      const base = f('folder').value
+      const sub = f('sub').value.trim().replace(/^\/+|\/+$/g, '')
+      const spec = {
+        name: f('name').value.trim(),
+        role: f('role').value,
+        folder: sub ? `${base.replace(/\/+$/, '')}/${sub}` : base,
+        resume: f('resume').checked,
+      }
+      if (spec.role === 'worker') spec.coordinator = f('coordinator').value.trim() || 'coord'
+      if (f('compact').value) spec.compact_window = Number(f('compact').value)
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(spec.name)) { err.textContent = T.sessionName + ': A-Z a-z 0-9 _ -'; f('name').focus(); return }
+      ok.disabled = true
+      ok.textContent = T.opening
+      try {
+        await postJson('/api/terminals/open', { host, spec })
+        d.close()
+        location.hash = `#/t/${encodeURIComponent(host)}/${encodeURIComponent(spec.name)}`
+      } catch (e) {
+        err.textContent = e.message
+        ok.disabled = false
+        ok.textContent = T.open
+      }
+    })
+  }
+
+  // ---------------------------------------------------------------------------
+  // web terminal: xterm.js (loaded on first use) over one WebSocket per tab
+  let xtermReady = null
+  function loadXterm() {
+    if (xtermReady) return xtermReady
+    const cdn = 'https://cdn.jsdelivr.net/npm/'
+    const css = document.createElement('link')
+    css.rel = 'stylesheet'
+    css.href = `${cdn}@xterm/xterm@5.5.0/css/xterm.css`
+    document.head.appendChild(css)
+    const script = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s) })
+    xtermReady = script(`${cdn}@xterm/xterm@5.5.0/lib/xterm.js`).then(() => script(`${cdn}@xterm/addon-fit@0.10.0/lib/addon-fit.js`))
+    xtermReady.catch(() => { xtermReady = null })
+    return xtermReady
+  }
+
+  const b64bytes = b => Uint8Array.from(atob(b), c => c.charCodeAt(0))
+
+  const termLink = {
+    ws: null, ready: false, views: new Set(), backoff: 1000, timer: null,
+    ensure() {
+      if (this.ws || !token) return
+      const ws = this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/terminal`)
+      ws.onopen = () => ws.send(JSON.stringify({ t: 'auth', token }))
+      ws.onmessage = ev => {
+        let m
+        try { m = JSON.parse(ev.data) } catch { return }
+        if (m.t === 'ready') { this.ready = true; this.backoff = 1000; for (const v of this.views) v.attach(); return }
+        for (const v of this.views) if (v.host === m.host && v.term === m.term) v.onMessage(m)
+      }
+      ws.onclose = ev => {
+        if (this.ws !== ws) return
+        this.ws = null
+        this.ready = false
+        if (ev.code === 4001) return showLogin(T.tokenInvalid)
+        for (const v of this.views) v.overlay(T.termLinkDown)
+        if (this.views.size) { clearTimeout(this.timer); this.timer = setTimeout(() => this.ensure(), this.backoff); this.backoff = Math.min(this.backoff * 2, 15000) }
+      }
+    },
+    send(m) { if (this.ready && this.ws?.readyState === 1) this.ws.send(JSON.stringify(m)) },
+    add(v) { this.views.add(v); this.ensure(); if (this.ready) v.attach() },
+    remove(v) { this.send({ t: 'detach', host: v.host, term: v.term }); this.views.delete(v) },
+    close() { clearTimeout(this.timer); const ws = this.ws; this.ws = null; this.ready = false; this.views.clear(); ws?.close() },
+  }
+
+  let termView = null
+  class TermView {
+    constructor(host, term, root) {
+      this.host = host
+      this.term = term
+      this.dead = false
+      root.innerHTML = `<div class="term-box"><div class="term-over">${T.termLoading}</div></div><div class="term-foot"></div>`
+      this.box = root.querySelector('.term-box')
+      this.over = root.querySelector('.term-over')
+      this.foot = root.querySelector('.term-foot')
+      this.renderFoot()
+      loadXterm().then(() => { if (!this.dead) this.start() }, () => this.overlay(T.termLoadFailed))
+    }
+
+    renderFoot() {
+      const h = hosts.get(this.host)
+      const ro = h?.info?.allow_input === false
+      this.foot.innerHTML = ro ? `<span class="ro">👁 ${T.readOnly}</span><span>${esc(T.typingOff)}</span>` : `<span>${esc(T.termHint(h?.name ?? this.host))}</span>`
+    }
+
+    start() {
+      const dark = { background: '#161513', foreground: '#ecebe7', cursor: '#e0855f', selectionBackground: '#4a4740' }
+      this.x = new window.Terminal({ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 13.5, cursorBlink: true, scrollback: 5000, theme: dark, allowProposedApi: false })
+      this.fit = new window.FitAddon.FitAddon()
+      this.x.loadAddon(this.fit)
+      this.x.open(this.box)
+      this.fitNow()
+      this.x.onData(data => {
+        if (hosts.get(this.host)?.info?.allow_input === false) return
+        termLink.send({ t: 'in', host: this.host, term: this.term, data })
+      })
+      let resizeTimer = null
+      this.x.onResize(({ cols, rows }) => {
+        clearTimeout(resizeTimer)
+        resizeTimer = setTimeout(() => termLink.send({ t: 'resize', host: this.host, term: this.term, cols, rows }), 150)
+      })
+      this.ro = new ResizeObserver(() => this.fitNow())
+      this.ro.observe(this.box)
+      this.x.focus()
+      termLink.add(this)
+    }
+
+    fitNow() { try { this.fit?.fit() } catch {} }
+
+    attach() {
+      if (!this.x) return
+      this.overlay(null)
+      termLink.send({ t: 'attach', host: this.host, term: this.term, cols: this.x.cols, rows: this.x.rows })
+    }
+
+    refresh() { termLink.send({ t: 'refresh', host: this.host, term: this.term }) }
+
+    overlay(text) {
+      this.over.hidden = !text
+      if (text) this.over.textContent = text
+    }
+
+    onMessage(m) {
+      if (m.t === 'screen') { this.x.reset(); this.x.write(b64bytes(m.data)); this.overlay(null); return }
+      if (m.t === 'out') { this.x.write(b64bytes(m.data)); return }
+      if (m.t === 'exit') return this.overlay(T.termEnded)
+      if (m.t === 'host_down') return this.overlay(T.termHostDown)
+      if (m.t === 'notice') this.foot.innerHTML = `<span class="ro">⚠ ${esc(m.text)}</span>`
+    }
+
+    destroy() {
+      this.dead = true
+      this.ro?.disconnect()
+      if (this.x) termLink.remove(this)
+      this.x?.dispose()
+    }
+  }
+
+  // A machine that comes back: re-attach the terminal on screen.
+  hostListeners.add(h => {
+    if (termView && termView.host === h.id) {
+      termView.renderFoot()
+      if (h.online && !termView.over.hidden && termView.over.textContent === T.termHostDown) termView.attach()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // live stream
+  function onStream(type, data) {
+    if (type === 'hello') {
+      serverSkew = data.server_time - Date.now()
+      if (data.version) setVersion(data.version)
+      sessions.clear()
+      for (const s of data.sessions) sessions.set(s.name, s)
+      groups = data.groups ?? []
+      hosts.clear()
+      for (const h of data.hosts ?? []) hosts.set(h.id, h)
+      route()
+      return
+    }
+    if (type === 'host') {
+      if (data.removed) hosts.delete(data.id); else hosts.set(data.id, data)
+      for (const fn of hostListeners) fn(data)
+      const r = currentRoute()
+      if (r.view === 'hosts') { if (r.host && data.removed && data.id === r.host) { location.hash = '#/hosts'; return } renderHosts(r.host); renderTop() }
+      if (r.view === 'terminal' || r.view === 'session') renderTop()
+      if (r.view === 'mosaic') for (const [name, p] of mosaicPanes) { const s = sessions.get(name); if (s) p.pane.querySelector('.pane-head').innerHTML = paneHead(s) }
+      renderNav()
+      return
+    }
+    if (type === 'session') {
+      const prev = sessions.get(data.name)
+      if (data.deleted) { sessions.delete(data.name); unread.delete(data.name) } else sessions.set(data.name, data)
+      const r = currentRoute()
+      if (r.view === 'mosaic') {
+        if (!prev || data.deleted || !!prev.archived_at !== !!data.archived_at || prev.role !== data.role || prev.coordinator !== data.coordinator) buildMosaic()
+        else { const p = mosaicPanes.get(data.name); if (p) { p.pane.className = paneClass(data); p.pane.querySelector('.pane-head').innerHTML = paneHead(data) } refreshSquadRows() }
+      }
+      if (r.view === 'archived') renderArchived()
+      if (r.view === 'session' && r.name === data.name && data.deleted) { location.hash = '#/'; return }
+      for (const v of views) if (v.name === data.name) { v.renderStatus(); v.render() }
+      renderNav()
+      if (r.view === 'session' || r.squad) renderTop()
+      return
+    }
+    if (type === 'cleared') {
+      const s = sessions.get(data.session)
+      if (s) s.cleared_at = data.at
+      for (const v of views) if (v.name === data.session) v.reset()
+      unread.delete(data.session)
+      renderNav()
+      return
+    }
+    if (type === 'event' || type === 'message') {
+      const it = type === 'event' ? { t: 'event', ...data } : { t: 'message', ts: data.created_at, ...data }
+      if (it.t === 'event' && it.kind === 'usage') return
+      let shown = false
+      for (const v of views) if (v.live(it)) shown = true
+      // unread counters for sessions not on screen
+      const r = currentRoute()
+      if (r.view === 'session') {
+        const owners = it.t === 'event' ? [it.session] : [it.from, it.target].filter(n => sessions.has(n))
+        let changed = false
+        for (const n of owners) if (n !== r.name) { unread.set(n, (unread.get(n) ?? 0) + 1); changed = true }
+        if (changed) renderNav()
+      }
+      void shown
+    }
+  }
+
+  function setConn(cls, text) { $('connDot').className = `dot ${cls}`; $('connText').textContent = text }
+
+  async function connect() {
+    let backoff = 1000
+    for (;;) {
+      streamAbort = new AbortController()
+      try {
+        const r = await fetch('/api/stream', { headers: { Authorization: `Bearer ${token}` }, signal: streamAbort.signal })
+        if (r.status === 401) return showLogin(T.tokenInvalid)
+        if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`)
+        setConn('ok', T.live)
+        backoff = 1000
+        const reader = r.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        for (;;) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buf += dec.decode(value, { stream: true })
+          let i
+          while ((i = buf.indexOf('\n\n')) >= 0) {
+            const block = buf.slice(0, i); buf = buf.slice(i + 2)
+            let type = 'message', data = ''
+            for (const line of block.split('\n')) {
+              if (line.startsWith('event: ')) type = line.slice(7)
+              else if (line.startsWith('data: ')) data += line.slice(6)
+            }
+            if (data) { try { onStream(type, JSON.parse(data)) } catch (e) { console.error(e) } }
+          }
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return
+      }
+      setConn('err', T.reconnecting)
+      await new Promise(res => setTimeout(res, backoff))
+      backoff = Math.min(backoff * 2, 15000)
+    }
+  }
+
+  // What needs you, across every session: permissions and nearly-full contexts.
+  function renderAlerts() {
+    const box = $('alerts')
+    if (!box) return
+    const list = sortedSessions().filter(s => s.online)
+    const items = []
+    for (const s of list) {
+      const st = status(s)
+      if (st.waiting) {
+        const a = s.activity ?? {}
+        const what = a.tool ? `${toolName(a.tool.name)}${a.tool.summary ? ` · ${a.tool.summary}` : ''}` : a.waiting
+        items.push({ cls: '', name: s.name, html: T.alertPerm(esc(s.name), esc(what ?? '')) })
+      }
+    }
+    for (const s of list) {
+      const p = s.activity?.context_pct
+      if (p != null && p >= 80) items.push({ cls: 'ctxw', name: s.name, html: T.alertCtx(esc(s.name), p) })
+    }
+    const key = items.map(i => i.html).join('|')
+    if (box.dataset.key === key) return
+    box.dataset.key = key
+    box.hidden = !items.length
+    const shown = items.slice(0, 4)
+    box.innerHTML = items.length ? `<span class="lbl">${T.needsYou}</span>${shown.map(i => `<button class="alert ${i.cls}" data-go="#/s/${encodeURIComponent(i.name)}">${i.html}</button>`).join('')}${items.length > shown.length ? `<span class="t">${T.alertMore(items.length - shown.length)}</span>` : ''}` : ''
+  }
+  $('alerts').addEventListener('click', e => {
+    const b = e.target.closest('[data-go]')
+    if (!b) return
+    // The machine's terminal is where a permission is answered, when there is one.
+    const name = decodeURIComponent(b.dataset.go.slice(4))
+    const where = terminalOf(name)
+    location.hash = where && sessions.get(name) && status(sessions.get(name)).waiting ? `#/t/${encodeURIComponent(where.host.id)}/${encodeURIComponent(name)}` : b.dataset.go
+  })
+
+  setInterval(() => {
+    for (const v of views) v.tick()
+    renderNav()
+    renderAlerts()
+    refreshSquadRows()
+    const r = currentRoute()
+    if (r.view === 'mosaic') for (const [name, p] of mosaicPanes) { const s = sessions.get(name); if (s) p.pane.querySelector('.pane-head .dot').className = `dot ${status(s).dot}` }
+  }, 1000)
+
+  // ---------------------------------------------------------------------------
+  // login: the dashboard is only built after the server accepts the token
+  function show(id) { for (const x of ['splash', 'login', 'app']) $(x).hidden = x !== id }
+
+  function showLogin(err = '') {
+    streamAbort?.abort()
+    clearMosaic()
+    sessionView?.destroy(); sessionView = null
+    termView?.destroy(); termView = null
+    termLink.close()
+    sessions.clear()
+    hosts.clear()
+    store.del('squadraToken'); store.del('swarmToken')
+    token = null
+    show('login')
+    $('loginErr').textContent = err
+    $('tokenInput').value = ''
+    $('tokenInput').focus()
+  }
+
+  async function enter(candidate) {
+    token = candidate
+    await api('/api/state') // throws if the token is wrong
+    store.set('squadraToken', token)
+    show('app')
+    connect()
+  }
+
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault()
+    $('loginBtn').disabled = true
+    $('loginErr').textContent = ''
+    try {
+      await enter($('tokenInput').value.trim())
+    } catch (err) {
+      token = null
+      $('loginErr').textContent = err.status === 401 ? T.tokenWrong : T.cannotConnect(err.message)
+    } finally {
+      $('loginBtn').disabled = false
+    }
+  })
+
+  $('logoutBtn').addEventListener('click', () => showLogin())
+
+  // static texts, version footer and language switch
+  $('splash').textContent = T.connecting
+  $('loginIntro').innerHTML = T.loginIntro
+  $('tokenInput').placeholder = T.tokenPlaceholder
+  $('loginBtn').textContent = T.enter
+  $('connText').textContent = T.connecting
+  $('logoutBtn').textContent = T.logout
+  $('logoutBtn').title = T.logoutTitle
+  $('menuBtn').setAttribute('aria-label', T.sessionsMenu)
+  $('addHostBtn').title = T.addTitle
+  $('addHostBtn').setAttribute('aria-label', T.addTitle)
+  for (const b of document.querySelectorAll('[data-lang]')) {
+    b.classList.toggle('on', b.dataset.lang === LANG)
+    b.addEventListener('click', () => { store.set('squadraLang', b.dataset.lang); location.reload() })
+  }
+  function setVersion(v) {
+    for (const el of document.querySelectorAll('.ver')) el.textContent = `Squadra v${v}`
+  }
+  fetch('/health').then(r => r.json()).then(j => { if (j.version) setVersion(j.version) }).catch(() => {})
+
+  // boot
+  if (token) {
+    show('splash')
+    enter(token).catch(err => showLogin(err.status === 401 ? T.storedTokenInvalid : T.cannotConnect(err.message)))
+  } else {
+    show('login')
+    $('tokenInput').focus()
+  }
+})()
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "squadra",
+  "version": "0.0.1",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "server": "node server/server.js",
+    "test": "node --test test/e2e.test.mjs test/host.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roke22/Squadra.git"
+  },
+  "homepage": "https://github.com/roke22/Squadra"
+}

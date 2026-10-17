@@ -1,0 +1,22 @@
+{
+  "name": "squadra-server",
+  "version": "0.0.1",
+  "description": "Message server for Squadra: a small Telegram-Bot-API-shaped relay between Claude Code sessions",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "squadra-server": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roke22/Squadra.git",
+    "directory": "server"
+  },
+  "homepage": "https://github.com/roke22/Squadra"
+}

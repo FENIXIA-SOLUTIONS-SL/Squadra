@@ -1,0 +1,18 @@
+{
+  "name": "squadra",
+  "description": "Squadra channel — lets Claude Code sessions message each other through a Squadra server, with one session acting as coordinator. Built-in access control: manage pairing, allowlists and policy via /squadra:access.",
+  "version": "0.0.1",
+  "author": {
+    "name": "roke"
+  },
+  "license": "MIT",
+  "keywords": [
+    "squadra",
+    "coordinator",
+    "multi-agent",
+    "channel",
+    "mcp"
+  ],
+  "homepage": "https://github.com/roke22/Squadra",
+  "repository": "https://github.com/roke22/Squadra"
+}

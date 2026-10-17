@@ -1,0 +1,11 @@
+# Caddy in front of squadra-server: HTTPS for your domain, certificates from
+# Let's Encrypt obtained and renewed automatically.
+#
+# The domain comes from SQUADRA_DOMAIN (see .env.example). Its DNS A/AAAA record
+# must point to this machine, and ports 80 and 443 must be reachable.
+
+{$SQUADRA_DOMAIN} {
+	# With docker-compose.yml the server is the "squadra-server" service.
+	# Running Caddy directly on the host instead? Use: reverse_proxy 127.0.0.1:7787
+	reverse_proxy squadra-server:7787
+}

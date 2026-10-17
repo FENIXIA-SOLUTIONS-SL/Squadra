@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="t">
+  <title id="t">Squadra</title>
+  <!-- Monochrome: the formation alone, in currentColor (set it with CSS `color`). -->
+  <g fill="currentColor">
+    <circle cx="32" cy="19" r="6.4"/>
+    <circle cx="23.5" cy="28.5" r="4.4"/>
+    <circle cx="40.5" cy="28.5" r="4.4"/>
+    <circle cx="16.5" cy="37" r="3.5"/>
+    <circle cx="47.5" cy="37" r="3.5"/>
+    <circle cx="10.5" cy="45" r="2.7"/>
+    <circle cx="53.5" cy="45" r="2.7"/>
+  </g>
+</svg>
