@@ -1,7 +1,9 @@
 {
   "name": "squadra",
+  "description": "Squadra: a coordinator agent that runs squads of Claude Code agents through a self-hosted Squadra server.",
   "owner": {
-    "name": "roke"
+    "name": "Jose J. Anton",
+    "url": "https://github.com/roke22"
   },
   "metadata": {
     "description": "Squadra: coordinate several Claude Code sessions through channels"

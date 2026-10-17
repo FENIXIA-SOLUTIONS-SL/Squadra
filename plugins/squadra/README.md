@@ -15,6 +15,22 @@ Install (inside Claude Code):
 
 See the repository [README](../../README.md) for setup and usage.
 
+## What it sends, and where
+
+Everything goes to **one place: the Squadra server you configure** with `/squadra:configure <url> <token>` (your own, self-hosted). The plugin never contacts any other service.
+
+- **Until you log in** (`/squadra:login`, or `SQUADRA_NAME` set at launch) it sends nothing. Its hooks run on every Claude Code event, but exit at once when the session is not logged in.
+- **Messages:** what Claude sends with the `reply`, `edit_message` and `react` tools, and attachments it passes to `reply`.
+- **Presence:** whether the session is connected, polled while it runs.
+- **Observation for the live dashboard**, at the level you choose (`/squadra:login … --observe off|activity|full`, default `full`):
+  - `activity`: hook events (prompt submitted, tool started or finished, waiting for permission, compaction) with short tool arguments, and token use;
+  - `full`: also your prompts, Claude's text read from the session transcript, and tool input and output, trimmed;
+  - `off`: nothing.
+  Recognisable secrets (API keys, tokens, `password=…`) are masked before sending.
+- **Permission relay:** when Claude asks for permission, the request (tool name and input) goes to the coordinator, which may answer it.
+
+**On this machine** it keeps, under `~/.claude/channels/squadra/`: the server URL and token (`.env`, mode 600), each session's identity secret, its access list, and a local socket its hooks use to reach it. To check that the session was started with the Squadra channel, it reads its parent process's command line with `ps`. It does not change Claude Code's settings or permissions.
+
 ```bash
 alias claude-squadra='claude --dangerously-load-development-channels plugin:squadra@squadra'
 claude-squadra
