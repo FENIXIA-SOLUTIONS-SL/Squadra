@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SERVER_TOKEN = 'test-server-token-host-0123456789'
+const AGENT_TOKEN = 'test-agent-token-host-0123456789'
 const PORT = 19000 + Math.floor(Math.random() * 2000)
 const URL_ = `http://127.0.0.1:${PORT}`
 const SOCKET = `squadra-test-${process.pid}`
@@ -76,7 +77,7 @@ while IFS= read -r line; do echo "GOT:$line"; done
   // The machine's own rules, written before enrolling.
   writeFileSync(join(hostDir, 'settings.json'), JSON.stringify({ folders: [allowed], max_sessions: 2, allow_input: true, claude_command: fakeClaude }))
   serverProc = spawn(process.execPath, [join(ROOT, 'server/server.js')], {
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, SQUADRA_SERVER_TOKEN: SERVER_TOKEN },
+    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, SQUADRA_SERVER_TOKEN: SERVER_TOKEN, SQUADRA_AGENT_TOKEN: AGENT_TOKEN },
     stdio: ['ignore', 'inherit', 'pipe'],
   })
   serverProc.stderr.on('data', d => { if (process.env.DEBUG) process.stderr.write(d) })
@@ -148,7 +149,9 @@ test('a machine enrolls with a one-time code and connects', { skip: !hasTmux && 
   assert.match(creds.secret, /^sh_/)
   const env = readFileSync(join(claudeDir, 'channels', 'squadra', '.env'), 'utf8')
   assert.match(env, new RegExp(`SQUADRA_URL=${URL_}`))
-  assert.match(env, new RegExp(`SQUADRA_SERVER_TOKEN=${SERVER_TOKEN}`))
+  // The agent token, never the server one: Claude on that machine can read this file.
+  assert.match(env, new RegExp(`SQUADRA_AGENT_TOKEN=${AGENT_TOKEN}`))
+  assert.doesNotMatch(env, /SQUADRA_SERVER_TOKEN/)
 
   // The code works only once.
   const again = await (await fetch(`${URL_}/host/enroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: en.result.code }) })).json()

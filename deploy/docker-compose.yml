@@ -2,7 +2,7 @@
 #
 #   cp .env.example .env      # set SQUADRA_DOMAIN
 #   docker compose up -d
-#   docker compose logs squadra-server   # prints the server token and the /squadra:configure command
+#   docker compose logs squadra-server   # prints the server token (dashboard), the agent token and the /squadra:configure command
 #
 # Only Caddy publishes ports; squadra-server is reachable only through it.
 

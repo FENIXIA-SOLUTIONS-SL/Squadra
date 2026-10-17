@@ -62,7 +62,11 @@ for (const [k, v] of Object.entries(process.env)) {
 }
 
 const SERVER_URL = (process.env.SQUADRA_URL ?? '').replace(/\/+$/, '')
-const SERVER_TOKEN = process.env.SQUADRA_SERVER_TOKEN ?? ''
+// The agent token only registers new session names. Older setups saved the
+// server token here instead, which also opens the dashboard and its web
+// terminal: it still works, but status() asks to replace it.
+const AGENT_TOKEN = process.env.SQUADRA_AGENT_TOKEN || process.env.SQUADRA_SERVER_TOKEN || ''
+const LEGACY_SERVER_TOKEN = !process.env.SQUADRA_AGENT_TOKEN && !!process.env.SQUADRA_SERVER_TOKEN
 const NAME_RE = /^[A-Za-z0-9_-]{1,32}$/
 const DEFAULT_COORDINATOR = 'coord'
 // Live observation for the dashboard: off | activity | full (Spanish aliases accepted).
@@ -395,17 +399,17 @@ async function loadIdentity(s) {
     const id = JSON.parse(readFileSync(s.identityFile, 'utf8'))
     if (id.name === s.name && id.secret) return id.secret
   } catch {}
-  if (!SERVER_TOKEN) {
-    throw new Error(`there is no identity for "${s.name}" and the server token is missing: run /squadra:configure <url> <token>`)
+  if (!AGENT_TOKEN) {
+    throw new Error(`there is no identity for "${s.name}" and the agent token is missing: run /squadra:configure <url> <agent-token>`)
   }
   let r
   try {
-    r = await call('register', { name: s.name }, { auth: SERVER_TOKEN })
+    r = await call('register', { name: s.name }, { auth: AGENT_TOKEN })
   } catch (err) {
     if (err instanceof ApiError && err.code === 409) {
-      throw new ApiError(409, `the name "${s.name}" is already registered on the server by another machine or an earlier install. Pick another name, copy its identity.json, or rotate the secret (/squadra:configure reset-identity)`)
+      throw new ApiError(409, `the name "${s.name}" is already registered on the server by another machine or an earlier install. Pick another name, copy its identity.json, or free the name (/squadra:configure reset-identity)`)
     }
-    if (err instanceof ApiError && err.code === 401) throw new ApiError(401, 'the server rejects the token: check /squadra:configure')
+    if (err instanceof ApiError && err.code === 401) throw new ApiError(401, 'the server rejects the agent token: check /squadra:configure')
     throw err
   }
   mkdirSync(s.stateDir, { recursive: true, mode: 0o700 })
@@ -555,7 +559,7 @@ async function login({ name, role, coordinator, staticAccess = false, seedAllow 
   const level = observe == null || observe === '' ? DEFAULT_OBSERVE : normalizeLevel(observe)
   if (!level) throw new Error(`invalid observation level "${observe}": use off, activity or full`)
   observe = level
-  if (!SERVER_URL) throw new Error('the server URL is missing: run /squadra:configure <url> <token>')
+  if (!SERVER_URL) throw new Error('the server URL is missing: run /squadra:configure <url> <agent-token>')
   role = parseRole(role)
   name = String(name ?? '').trim()
   if (!name) name = role === 'coordinator' ? DEFAULT_COORDINATOR : ''
@@ -584,7 +588,7 @@ async function login({ name, role, coordinator, staticAccess = false, seedAllow 
     } catch (err) {
       // The stored identity no longer exists on the server (deleted from the
       // dashboard): register the name again, once.
-      if (!(err instanceof ApiError && err.code === 401) || !SERVER_TOKEN) throw err
+      if (!(err instanceof ApiError && err.code === 401) || !AGENT_TOKEN) throw err
       log(`identity "${name}" unknown to the server, registering it again`)
       rmSync(s.identityFile, { force: true })
       s.secret = await loadIdentity(s)
@@ -679,7 +683,8 @@ async function logout() {
 async function status() {
   const lines = []
   lines.push(`Plugin Squadra v${VERSION}`)
-  lines.push(`Server: ${SERVER_URL || '(not configured: /squadra:configure <url> <token>)'}${SERVER_TOKEN ? '' : ' — no server token'}`)
+  lines.push(`Server: ${SERVER_URL || '(not configured: /squadra:configure <url> <agent-token>)'}${AGENT_TOKEN ? '' : ' — no agent token'}`)
+  if (LEGACY_SERVER_TOKEN) lines.push('⚠️ This machine stores the SERVER token, which also opens the dashboard and its web terminal. Replace it with the agent token: /squadra:configure <url> <agent-token>')
   const launch = channelLaunchStatus()
   lines.push(`Channel in this session: ${launch.ok === true ? 'enabled' : launch.ok === false ? 'NOT enabled (no messages will arrive)' : 'could not be checked'}`)
   if (!S) {
@@ -1084,23 +1089,31 @@ rl.on('line', line => {
 
 // --- permission relay ------------------------------------------------------------------
 
-// Receive permission_request from Claude Code → format → send to every
-// allowlisted DM. Groups are intentionally excluded, like the Telegram plugin.
+// Who may answer this session's permission prompts: only a worker's own
+// coordinator, and only while it is allowlisted. A coordinator's prompts stay
+// in its terminal, for the user: its workers must never approve what it runs,
+// nor one worker what another runs.
+function permissionApprover(s) {
+  if (s.role !== 'worker' || !s.coordinator) return null
+  return loadAccess(s).allowFrom.includes(s.coordinator) ? s.coordinator : null
+}
+
+// Receive permission_request from Claude Code → format → send it to the
+// coordinator (see permissionApprover). Never to groups or other sessions.
 async function onPermissionRequest(params) {
   const s = S
   if (!s?.secret) return
   const { request_id, tool_name, description, input_preview } = params
   if (!request_id) return
-  const access = loadAccess(s)
+  const approver = permissionApprover(s)
+  if (!approver) return
   const text =
     `🔐 Permission: ${tool_name}\n` +
     `Session: ${s.name}\n` +
     `Description: ${description}\n` +
     `Input:\n${input_preview}\n\n` +
     `Reply "yes ${request_id}" or "no ${request_id}"`
-  for (const chat_id of access.allowFrom) {
-    void call('sendMessage', { chat_id, text }, { s }).catch(e => log(`permission_request send to ${chat_id} failed: ${e.message}`))
-  }
+  void call('sendMessage', { chat_id: approver, text }, { s }).catch(e => log(`permission_request send to ${approver} failed: ${e.message}`))
 }
 
 // --- inbound -----------------------------------------------------------------------------
@@ -1161,8 +1174,9 @@ async function handleInbound(s, msg, { edited = false } = {}) {
 
   // Permission-reply intercept: if this looks like "yes xxxxx" for a pending
   // permission request, emit the structured event instead of relaying as chat.
-  // The sender is already gate()-approved and server-authenticated.
-  if (!edited) {
+  // The sender is already gate()-approved and server-authenticated; only the
+  // approver's verdict counts (anyone else's "yes xxxxx" is just a message).
+  if (!edited && msg.chat?.type === 'private' && String(from?.id) === permissionApprover(s)) {
     const permMatch = PERMISSION_REPLY_RE.exec(text)
     if (permMatch) {
       notify('notifications/claude/channel/permission', {

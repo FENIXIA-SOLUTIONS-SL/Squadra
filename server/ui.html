@@ -1614,7 +1614,7 @@
         <div class="host-head"><span class="dot ${h.online ? 'ok' : ''}"></span><span class="n">${esc(h.name)}</span>
           <span class="m">${h.online ? T.hostOnline : T.hostOffline(h.last_seen_at ? dur(now() - h.last_seen_at) : '—')}${hostLine(h) ? ` · ${esc(hostLine(h))}` : ''}</span>
           <span class="acts">${h.online ? `<button class="btn" data-hact="new" data-h="${esc(h.id)}">${T.newSession}</button>` : ''}<button class="more" data-hmenu="${esc(h.id)}" aria-label="${esc(T.actions(h.name))}">⋯</button></span></div>
-        <div class="host-meta">${i.plugin ? (i.plugin.installed && i.plugin.enabled ? `<span>${T.pluginOk(esc(i.plugin.version ?? ''))}</span>` : `<span class="plugin-missing">${T.pluginMissing(!i.plugin.installed)}</span>`) : ''}<span>${T.folders}: ${i.folders?.length ? i.folders.map(f => `<code>${esc(f)}</code>`).join(' ') : T.noFolders}</span>${i.max_sessions ? `<span>${T.maxSessions(i.max_sessions)}</span>` : ''}<span>${i.allow_input === false ? T.typingOff : T.typingOn}</span></div>
+        <div class="host-meta">${i.plugin ? (i.plugin.installed && i.plugin.enabled ? `<span>${T.pluginOk(esc(i.plugin.version ?? ''))}</span>` : `<span class="plugin-missing">${T.pluginMissing(!i.plugin.installed)}</span>`) : ''}<span>${T.folders}: ${i.folders?.length ? i.folders.map(f => `<code>${esc(f)}</code>`).join(' ') : T.noFolders}</span>${i.max_sessions ? `<span>${T.maxSessions(i.max_sessions)}</span>` : ''}<span>${i.allow_input === true ? T.typingOn : T.typingOff}</span></div>
         <div class="host-terms">${rows || `<div class="host-empty">${T.noTerminals}</div>`}</div>
       </div>`
     }).join('')}</div>`
@@ -1875,7 +1875,7 @@
 
     renderFoot() {
       const h = hosts.get(this.host)
-      const ro = h?.info?.allow_input === false
+      const ro = h?.info?.allow_input !== true
       this.foot.innerHTML = ro ? `<span class="ro">👁 ${T.readOnly}</span><span>${esc(T.typingOff)}</span>` : `<span>${esc(T.termHint(h?.name ?? this.host))}</span>`
     }
 
@@ -1887,7 +1887,7 @@
       this.x.open(this.box)
       this.fitNow()
       this.x.onData(data => {
-        if (hosts.get(this.host)?.info?.allow_input === false) return
+        if (hosts.get(this.host)?.info?.allow_input !== true) return
         termLink.send({ t: 'in', host: this.host, term: this.term, data })
       })
       let resizeTimer = null

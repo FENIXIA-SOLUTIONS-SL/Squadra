@@ -6,8 +6,12 @@
  * plugin is a near-copy of the official Telegram channel plugin. Every Claude
  * Code session is an identity (a "bot" that also acts as a "user" for others).
  *
- * Auth has two levels:
- *   - SQUADRA_SERVER_TOKEN: needed to register identities and for admin calls.
+ * Auth has three levels:
+ *   - SQUADRA_SERVER_TOKEN: the dashboard, its web terminal, admin calls, and
+ *     rotating an identity's secret. It stays with whoever runs the squad.
+ *   - SQUADRA_AGENT_TOKEN: only registers NEW session names. It is the one
+ *     every agent machine stores, where its Claude can read it, so it must not
+ *     open the dashboard or take over an existing session.
  *   - Identity secret: returned once by /register; every other call uses it.
  *     The sender of a message is always derived from the secret, never from
  *     a request field, so a session can't impersonate another.
@@ -156,27 +160,33 @@ const PHOTO_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp'])
 
 mkdirSync(join(DATA_DIR, 'files'), { recursive: true })
 
-// Server token: SQUADRA_SERVER_TOKEN if set; otherwise the one saved in
-// DATA_DIR/server-token; otherwise a new one, generated and saved there so
-// restarts keep the same token and plugins don't need reconfiguring.
-const TOKEN_FILE = join(DATA_DIR, 'server-token')
-const { token: SERVER_TOKEN, source: TOKEN_SOURCE } = (() => {
-  const fromEnv = process.env.SQUADRA_SERVER_TOKEN ?? process.env.SWARM_SERVER_TOKEN // SWARM_: former name
+// Each token: its environment variable if set; otherwise the one saved in
+// DATA_DIR; otherwise a new one, generated and saved there so restarts keep
+// the same token and plugins don't need reconfiguring.
+function loadToken(envName, fileName, prefix) {
+  const file = join(DATA_DIR, fileName)
+  const fromEnv = process.env[envName] ?? process.env[envName.replace(/^SQUADRA_/, 'SWARM_')] // SWARM_: former name
   if (fromEnv) {
     if (fromEnv.length < 16) {
-      process.stderr.write('squadra-server: SQUADRA_SERVER_TOKEN must be at least 16 chars\n')
+      process.stderr.write(`squadra-server: ${envName} must be at least 16 chars\n`)
       process.exit(1)
     }
-    return { token: fromEnv, source: 'env SQUADRA_SERVER_TOKEN' }
+    return { token: fromEnv, source: `env ${envName}` }
   }
   try {
-    const saved = readFileSync(TOKEN_FILE, 'utf8').trim()
-    if (saved.length >= 16) return { token: saved, source: TOKEN_FILE }
+    const saved = readFileSync(file, 'utf8').trim()
+    if (saved.length >= 16) return { token: saved, source: file }
   } catch {}
-  const generated = randomBytes(24).toString('hex')
-  writeFileSync(TOKEN_FILE, generated + '\n', { mode: 0o600 })
-  return { token: generated, source: `${TOKEN_FILE} (new)` }
-})()
+  const generated = prefix + randomBytes(24).toString('hex')
+  writeFileSync(file, generated + '\n', { mode: 0o600 })
+  return { token: generated, source: `${file} (new)` }
+}
+const { token: SERVER_TOKEN, source: TOKEN_SOURCE } = loadToken('SQUADRA_SERVER_TOKEN', 'server-token', '')
+const { token: AGENT_TOKEN, source: AGENT_TOKEN_SOURCE } = loadToken('SQUADRA_AGENT_TOKEN', 'agent-token', 'sa_')
+if (AGENT_TOKEN === SERVER_TOKEN) {
+  process.stderr.write('squadra-server: SQUADRA_AGENT_TOKEN must be different from SQUADRA_SERVER_TOKEN\n')
+  process.exit(1)
+}
 const db = new DatabaseSync(join(DATA_DIR, 'squadra.db'))
 db.exec(`
   PRAGMA journal_mode = WAL;
@@ -1227,7 +1237,7 @@ function enrollHost(p, req) {
   process.stderr.write(`squadra-server: host "${hostRow(id).name}" (${id}) enrolled from ${ip}\n`)
   return {
     id, secret, name: hostRow(id).name,
-    ...(row.configure_plugin ? { plugin: { url: serverBaseUrl(req), token: SERVER_TOKEN } } : {}),
+    ...(row.configure_plugin ? { plugin: { url: serverBaseUrl(req), token: AGENT_TOKEN } } : {}),
   }
 }
 
@@ -1260,7 +1270,7 @@ function sanitizeHostInfo(info) {
     version: str(info.version, 40),
     folders: (Array.isArray(info.folders) ? info.folders : []).slice(0, 50).map(f => str(f, 500)).filter(Boolean),
     max_sessions: Number.isInteger(info.max_sessions) ? info.max_sessions : null,
-    allow_input: info.allow_input !== false,
+    allow_input: info.allow_input === true,
     plugin: info.plugin && typeof info.plugin === 'object'
       ? { installed: info.plugin.installed === true, enabled: info.plugin.enabled === true, version: str(info.plugin.version, 40) }
       : null,
@@ -1527,11 +1537,11 @@ function bearer(req) {
   return h.startsWith('Bearer ') ? h.slice(7).trim() : ''
 }
 
-function isServerToken(token) {
-  const a = Buffer.from(sha256(token))
-  const b = Buffer.from(sha256(SERVER_TOKEN))
-  return timingSafeEqual(a, b)
+function sameToken(token, expected) {
+  return timingSafeEqual(Buffer.from(sha256(token)), Buffer.from(sha256(expected)))
 }
+const isServerToken = token => sameToken(token, SERVER_TOKEN)
+const isAgentToken = token => sameToken(token, AGENT_TOKEN)
 
 async function handle(req, res) {
   try {
@@ -1578,11 +1588,23 @@ async function handle(req, res) {
       return sendJson(res, 200, { ok: true, result: fn(url.searchParams) })
     }
 
-    // Admin and registration: server token.
-    if (path === '/register' || path.startsWith('/admin/')) {
+    // Registration: the agent token registers new names only; rotating an
+    // existing identity (reset) would hand over that session, so it needs the
+    // server token.
+    if (path === '/register') {
+      const admin = !!token && isServerToken(token)
+      if (!admin && !(token && isAgentToken(token))) throw new ApiError(401, 'Unauthorized')
+      const params = await readParams(req, url)
+      if (params.reset === true && !admin) {
+        throw new ApiError(403, 'Forbidden: rotating an identity needs the server token; or delete the session from the dashboard and log in again')
+      }
+      return sendJson(res, 200, { ok: true, result: adminMethods.register(params) })
+    }
+
+    // Admin: server token.
+    if (path.startsWith('/admin/')) {
       if (!token || !isServerToken(token)) throw new ApiError(401, 'Unauthorized')
-      const method = path === '/register' ? 'register' : path.slice('/admin/'.length)
-      const fn = adminMethods[method]
+      const fn = adminMethods[path.slice('/admin/'.length)]
       if (!fn) throw new ApiError(404, 'Not Found: method not found')
       const params = await readParams(req, url)
       return sendJson(res, 200, { ok: true, result: fn(params) })
@@ -1637,12 +1659,12 @@ function startupBanner(scheme) {
   const lines = [
     `squadra-server v${VERSION}: listening on ${scheme}://${HOST}:${PORT}${everywhere ? ' (all interfaces)' : ''} (data: ${DATA_DIR})`,
     '',
-    `  Server token (${TOKEN_SOURCE}):`,
+    `  Server token, for the dashboard only; keep it off agent machines (${TOKEN_SOURCE}):`,
     `    ${SERVER_TOKEN}`,
-    '',
-    '  Configure each machine from Claude Code with:',
-    `    /squadra:configure ${url} ${SERVER_TOKEN}`,
     `  Dashboard: ${url}/`,
+    '',
+    `  Configure each machine from Claude Code with the agent token (${AGENT_TOKEN_SOURCE}):`,
+    `    /squadra:configure ${url} ${AGENT_TOKEN}`,
   ]
   if (!TLS && !PUBLIC_URL && !everywhere && LOOPBACK.has(HOST)) {
     lines.push('', '  Only reachable from this machine. To serve your domain over HTTPS, start with',

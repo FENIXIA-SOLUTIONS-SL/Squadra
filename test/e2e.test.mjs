@@ -14,6 +14,7 @@ import { createInterface } from 'node:readline'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SERVER_TOKEN = 'test-server-token-0123456789'
+const AGENT_TOKEN = 'test-agent-token-0123456789'
 const PORT = 17000 + Math.floor(Math.random() * 2000)
 const URL_ = `http://127.0.0.1:${PORT}`
 
@@ -45,7 +46,7 @@ async function api(method, params = {}, auth) {
 
 before(async () => {
   serverProc = spawn(process.execPath, [join(ROOT, 'server/server.js')], {
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, SQUADRA_SERVER_TOKEN: SERVER_TOKEN },
+    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, SQUADRA_SERVER_TOKEN: SERVER_TOKEN, SQUADRA_AGENT_TOKEN: AGENT_TOKEN },
     stdio: ['ignore', 'inherit', 'pipe'],
   })
   serverProc.stderr.on('data', d => { if (process.env.DEBUG) process.stderr.write(d) })
@@ -64,10 +65,11 @@ after(() => {
 const plugins = []
 
 class Plugin {
-  constructor(name, extraEnv = {}, { configDir } = {}) {
+  constructor(name, extraEnv = {}, { configDir, legacyServerToken = false } = {}) {
     this.configDir = configDir ?? mkdtempSync(join(tmpdir(), `squadra-cfg-${name || 'none'}-`))
     mkdirSync(join(this.configDir, 'channels', 'squadra'), { recursive: true })
-    writeFileSync(join(this.configDir, 'channels', 'squadra', '.env'), `SQUADRA_URL=${URL_}\nSQUADRA_SERVER_TOKEN=${SERVER_TOKEN}\n`)
+    const token = legacyServerToken ? `SQUADRA_SERVER_TOKEN=${SERVER_TOKEN}` : `SQUADRA_AGENT_TOKEN=${AGENT_TOKEN}`
+    writeFileSync(join(this.configDir, 'channels', 'squadra', '.env'), `SQUADRA_URL=${URL_}\n${token}\n`)
     const env = { ...process.env, CLAUDE_CONFIG_DIR: this.configDir, ...extraEnv }
     if (name) env.SQUADRA_NAME = name
     else delete env.SQUADRA_NAME
@@ -154,6 +156,34 @@ test('server: register, auth, duplicate names', async () => {
   assert.equal(me.result.username, 'alpha')
   const badSecret = await api('getMe', {}, 'sw_nope')
   assert.equal(badSecret.error_code, 401)
+})
+
+test('server: the agent token only registers new names', async () => {
+  const r = await api('register', { name: 'agent1' }, AGENT_TOKEN)
+  assert.match(r.result.secret, /^sq_/)
+  // Rotating an existing identity would hand that session over: server token only.
+  const takeover = await api('register', { name: 'agent1', reset: true }, AGENT_TOKEN)
+  assert.equal(takeover.error_code, 403)
+  assert.equal((await api('getMe', {}, r.result.secret)).result.username, 'agent1', 'secret not rotated')
+  const rotated = await api('register', { name: 'agent1', reset: true }, SERVER_TOKEN)
+  assert.match(rotated.result.secret, /^sq_/)
+  // No admin calls, no dashboard.
+  assert.equal((await api('admin/listIdentities', {}, AGENT_TOKEN)).error_code, 401)
+  const state = auth => fetch(`${URL_}/api/state`, { headers: { Authorization: `Bearer ${auth}` } }).then(x => x.json())
+  assert.equal((await state(AGENT_TOKEN)).error_code, 401)
+  assert.equal((await state(SERVER_TOKEN)).ok, true)
+})
+
+test('plugin: an old setup with the server token still logs in, and status asks to replace it', async () => {
+  const p = new Plugin(null, { SQUADRA_ASSUME_CHANNEL: '1' }, { legacyServerToken: true })
+  await p.init()
+  await p.tool('login', { role: 'worker', name: 'legacy1', coordinator: 'coord' })
+  assert.match(await p.tool('status', {}), /stores the SERVER token/)
+  p.close()
+  const q = new Plugin(null, { SQUADRA_ASSUME_CHANNEL: '1' })
+  await q.init()
+  assert.doesNotMatch(await q.tool('status', {}), /stores the SERVER token/)
+  q.close()
 })
 
 test('server: messages, offset confirmation, long poll, 409 conflict', async () => {
@@ -504,6 +534,20 @@ test('plugin: full coordinator/worker flow', async () => {
   const verdict = await waitFor(() => w1.notifications.find(n => n.method === 'notifications/claude/channel/permission'), { what: 'verdict' })
   assert.deepEqual(verdict.params, { request_id: 'abcde', behavior: 'allow' })
   assert.equal(w1.channel(p => p.content === 'yes abcde').length, 0, 'verdict not relayed as chat')
+
+  // A coordinator's prompts stay in its terminal: its workers never see them,
+  // and a worker's "yes <code>" is not a verdict for it, just a message.
+  coord.notify('notifications/claude/channel/permission_request', {
+    request_id: 'fghij',
+    tool_name: 'Bash',
+    description: 'Push to main',
+    input_preview: '{"command":"git push origin main"}',
+  })
+  await sleep(600)
+  assert.equal(w1.channel(p => p.content.includes('🔐 Permission')).length, 0, 'coordinator prompt not sent to workers')
+  await w1.tool('reply', { chat_id: 'coord', text: 'yes fghij' })
+  await coord.waitChannel(p => p.content === 'yes fghij', "worker's yes arrives as a plain message")
+  assert.equal(coord.notifications.filter(n => n.method === 'notifications/claude/channel/permission').length, 0, 'no verdict from a worker')
 
   // 9. Groups with mention gating.
   const w2 = new Plugin('w2', { SQUADRA_ALLOW_FROM: 'coord', SQUADRA_ASSUME_CHANNEL: '1' })

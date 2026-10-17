@@ -13,8 +13,8 @@
  *
  * Typing in a session's terminal from the dashboard is, by nature, the same as
  * sitting at this machine: anyone holding the dashboard can make Claude run
- * things. Turn it off with "allow_input": false in settings.json if you only
- * want to watch.
+ * things. So it is off by default: the dashboard only watches until this
+ * machine sets "allow_input": true in settings.json.
  *
  * Sessions run in tmux (a private server: tmux -L squadra), so they survive
  * restarts of this program and can be attached locally:
@@ -44,7 +44,7 @@ const PREFIX = 'sq-'
 const NAME_RE = /^[A-Za-z0-9_-]{1,32}$/
 const COMPACT_MIN = 50_000
 const COMPACT_MAX = 1_000_000
-const DEFAULT_SETTINGS = { folders: [], max_sessions: 8, allow_input: true, claude_command: 'claude' }
+const DEFAULT_SETTINGS = { folders: [], max_sessions: 8, allow_input: false, claude_command: 'claude' }
 
 const log = m => process.stderr.write(`squadra-host: ${m}\n`)
 const die = (m, code = 1) => { process.stderr.write(`squadra-host: ${m}\n`); process.exit(code) }
@@ -66,7 +66,7 @@ function loadSettings() {
   const s = { ...DEFAULT_SETTINGS, ...readJson(SETTINGS_FILE, {}) }
   s.folders = (Array.isArray(s.folders) ? s.folders : []).filter(f => typeof f === 'string' && isAbsolute(f))
   s.max_sessions = Number.isInteger(s.max_sessions) && s.max_sessions > 0 ? Math.min(s.max_sessions, 64) : DEFAULT_SETTINGS.max_sessions
-  s.allow_input = s.allow_input !== false
+  s.allow_input = s.allow_input === true
   s.claude_command = typeof s.claude_command === 'string' && s.claude_command ? s.claude_command : 'claude'
   return s
 }
@@ -489,7 +489,7 @@ const USAGE = `Usage:
 Settings: ${SETTINGS_FILE}
   folders        sessions can only be opened inside these folders
   max_sessions   at most this many sessions at once (default 8)
-  allow_input    whether the dashboard may type in the terminals (default true)
+  allow_input    whether the dashboard may type in the terminals (default false)
   claude_command the Claude Code executable (default "claude")
 `
 
@@ -518,7 +518,7 @@ async function enroll(server, code, { plugin = true } = {}) {
   const pluginEnv = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'channels', 'squadra', '.env')
   if (j.result.plugin && !existsSync(pluginEnv)) {
     mkdirSync(join(pluginEnv, '..'), { recursive: true, mode: 0o700 })
-    writeFileSync(pluginEnv, `SQUADRA_URL=${j.result.plugin.url}\nSQUADRA_SERVER_TOKEN=${j.result.plugin.token}\n`, { mode: 0o600 })
+    writeFileSync(pluginEnv, `SQUADRA_URL=${j.result.plugin.url}\nSQUADRA_AGENT_TOKEN=${j.result.plugin.token}\n`, { mode: 0o600 })
     log(`Squadra plugin configured for ${j.result.plugin.url} (${pluginEnv})`)
   }
   // Install the plugin itself, so sessions opened from the dashboard work unattended.

@@ -56,7 +56,7 @@ Call Squadra MCP server's `login` tool with `role`, `name` and, for workers,
   the launch command it gives (and the alias) — the user has to restart
   Claude Code; there is no way to enable channels from inside a session.
 - If it says the URL or token is missing, point to
-  `/squadra:configure <url> <token>`.
+  `/squadra:configure <url> <agent-token>`.
 - If it says another ACTIVE session is connected with that name, tell the
   user and suggest another name. Mention `--force` only as the way to kick a
   session they know is stuck; never retry with `force` on your own.

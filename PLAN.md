@@ -69,15 +69,18 @@ docker run -d --name squadra-server -p 7787:7787 -v squadra-data:/data squadra-s
 docker logs squadra-server      # para ver el token
 ```
 
-**El token del servidor:**
-- Al arrancar por primera vez, el servidor lo genera, lo guarda en `data/server-token` (permisos 600) y **lo muestra en pantalla** junto al comando `/squadra:configure` listo para copiar.
-- Los arranques siguientes reutilizan ese mismo token.
-- Para verlo otra vez: `cat data/server-token`, o volver a arrancar.
-- Para cambiarlo: borra el fichero y reinicia. Después tendrás que reconfigurar cada máquina.
+**Los dos tokens:**
+- **Token del servidor** (`data/server-token`): abre el panel, su terminal web y las llamadas de administración, y es el único que rota el secreto de una sesión existente. Se queda con quien dirige el escuadrón: **nunca en una máquina con agentes**, porque cualquier Claude de esa máquina podría leerlo.
+- **Token de agentes** (`data/agent-token`, `sa_…`): el que guarda el plugin de cada máquina. Solo registra nombres de sesión **nuevos**: no rota secretos, no entra en el panel ni en `/admin`.
+- Al arrancar por primera vez, el servidor los genera, los guarda (permisos 600) y **los muestra en pantalla** junto al comando `/squadra:configure` (con el de agentes) listo para copiar.
+- Los arranques siguientes reutilizan los mismos tokens. Para verlos otra vez: `cat data/server-token data/agent-token`, o volver a arrancar.
+- Para cambiar uno: borra su fichero y reinicia. Si cambias el de agentes, tendrás que reconfigurar cada máquina.
+- Las máquinas configuradas antes de separarlos guardan `SQUADRA_SERVER_TOKEN`: siguen funcionando, pero `/squadra:status` pide sustituirlo por el de agentes.
 
 | Variable | Por defecto | |
 |---|---|---|
-| `SQUADRA_SERVER_TOKEN` | el de `data/server-token`, o uno generado | Da permiso para registrar sesiones (mín. 16 caracteres). Si la defines, tiene prioridad sobre el fichero |
+| `SQUADRA_SERVER_TOKEN` | el de `data/server-token`, o uno generado | Panel, terminal web, administración y rotar secretos (mín. 16 caracteres). Si la defines, tiene prioridad sobre el fichero |
+| `SQUADRA_AGENT_TOKEN` | el de `data/agent-token`, o uno generado | Solo registrar nombres de sesión nuevos (mín. 16 caracteres, distinto del del servidor). Si la defines, tiene prioridad sobre el fichero |
 | `HOST` | `127.0.0.1` (`0.0.0.0` en Docker) | Interfaz de escucha |
 | `PUBLIC_URL` | — | Dirección pública (`https://tu-dominio`), para mostrar el comando `/squadra:configure` correcto |
 | `SQUADRA_DOMAIN` / `--domain` | — | HTTPS integrado: el servidor obtiene y renueva un certificado de Let's Encrypt (ACME HTTP-01, sin dependencias) y redirige el HTTP a HTTPS. Necesita los puertos 80 y 443 |
@@ -257,8 +260,8 @@ El servidor sirve un panel en su misma dirección: `http://127.0.0.1:7787/`, o `
   - `compact_window`: entero entre 50 000 y 1 000 000 (por defecto 600 000 desde el panel), que se pasa como `CLAUDE_CODE_AUTO_COMPACT_WINDOW`;
   - `resume`: añade `--continue`.
 - **El comando es fijo:** `claude --dangerously-load-development-channels plugin:squadra@squadra [--continue]`, lanzado por tmux sin shell. Con `SQUADRA_NAME`, `SQUADRA_ROLE` y `SQUADRA_COORDINATOR` el plugin hace el login solo, y sus instrucciones MCP le dicen a Claude su rol desde el principio.
-- **Las reglas viven en la máquina** (`~/.config/squadra-host/settings.json`): `folders`, `max_sessions` (8), `allow_input` (true) y `claude_command`. El servidor las ve, pero no puede cambiarlas.
-- **El terminal web equivale a estar delante de la máquina.** Escribir en Claude permite pedirle cualquier cosa, o usar `!` para ejecutar comandos. Por eso: HTTPS fuera de local, el token del servidor bien guardado, `allow_input: false` en las máquinas que solo se quieran mirar, y un registro en el servidor de quién mira o escribe en cada terminal. Pendiente para otra versión: firmar las teclas en el navegador con una clave emparejada con cada máquina, para que ni un servidor comprometido pueda escribir.
+- **Las reglas viven en la máquina** (`~/.config/squadra-host/settings.json`): `folders`, `max_sessions` (8), `allow_input` (false: desde la web solo se mira) y `claude_command`. El servidor las ve, pero no puede cambiarlas.
+- **El terminal web equivale a estar delante de la máquina.** Escribir en Claude permite pedirle cualquier cosa, o usar `!` para ejecutar comandos. Por eso: HTTPS fuera de local, el token del servidor bien guardado y fuera de las máquinas con agentes, `allow_input: false` por defecto (se activa a mano solo donde haga falta escribir), y un registro en el servidor de quién mira o escribe en cada terminal. Pendiente para otra versión: firmar las teclas en el navegador con una clave emparejada con cada máquina, para que ni un servidor comprometido pueda escribir.
 
 **Alta de una máquina:**
 1. El panel pide `POST /api/hosts/enroll {name, configure_plugin}`. El servidor genera un código `XXXX-XXXX` de un solo uso, válido 15 minutos y guardado como hash, y devuelve el comando `curl … && node squadra-host.mjs enroll <url> <código>`.
@@ -301,13 +304,15 @@ curl -s -X POST $URL/register -H "$H" -d '{"name":"w1","reset":true}' # rota el 
 
 ## Seguridad
 
-- **Dos niveles de autenticación:**
-  - el token del servidor, para poder registrar sesiones;
+- **Tres niveles de autenticación:**
+  - el token del servidor, para el panel, la administración y rotar secretos;
+  - el token de agentes, que solo registra nombres nuevos;
   - un secreto por nombre de sesión, que el servidor emite una sola vez y el plugin guarda en `identity.json` (600).
 - **El remitente de cada mensaje lo decide el servidor** a partir del secreto: una sesión no puede hacerse pasar por otra.
 - **Cada sesión filtra lo que recibe** con su lista de permitidos (`access.json`), igual que el plugin de Telegram. Lo que no está permitido se descarta sin llegar a Claude.
 - Los mensajes de otras sesiones son **contexto de trabajo, no autorización del usuario**. Las instrucciones de Claude lo dicen expresamente.
 - **Retransmitir permisos da poder al coordinador:** puede aprobar herramientas en los workers. Limítalo en el `CLAUDE.md` del coordinador si hace falta.
+- **Solo el coordinador de cada worker contesta sus permisos.** La petición va solo a él, y el plugin ignora un `yes <código>` de cualquier otra sesión. Las peticiones del propio coordinador no salen de su terminal: ningún worker puede aprobar lo que ejecuta el coordinador.
 
 ## Mover una sesión a otra máquina
 

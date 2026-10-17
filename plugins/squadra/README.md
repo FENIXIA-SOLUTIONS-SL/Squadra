@@ -4,7 +4,7 @@ Lets Claude Code sessions message each other through a `squadra-server`, with on
 
 - Zero dependencies: `server.js` speaks MCP over stdio itself. It needs Node ≥ 22.
 - Idle until `/squadra:login` (or `SQUADRA_NAME` at launch), so normal sessions aren't affected.
-- Skills: `/squadra:login`, `/squadra:logout`, `/squadra:status`, `/squadra:configure` (server URL, token, identity) and `/squadra:access` (pairing, allowlist, policy, groups).
+- Skills: `/squadra:login`, `/squadra:logout`, `/squadra:status`, `/squadra:configure` (server URL, agent token, identity) and `/squadra:access` (pairing, allowlist, policy, groups).
 
 Install (inside Claude Code):
 
@@ -17,7 +17,7 @@ See the repository [README](../../README.md) for setup and usage.
 
 ## What it sends, and where
 
-Everything goes to **one place: the Squadra server you configure** with `/squadra:configure <url> <token>` (your own, self-hosted). The plugin never contacts any other service.
+Everything goes to **one place: the Squadra server you configure** with `/squadra:configure <url> <agent-token>` (your own, self-hosted). The plugin never contacts any other service.
 
 - **Until you log in** (`/squadra:login`, or `SQUADRA_NAME` set at launch) it sends nothing. Its hooks run on every Claude Code event, but exit at once when the session is not logged in.
 - **Messages:** what Claude sends with the `reply`, `edit_message` and `react` tools, and attachments it passes to `reply`.
@@ -29,7 +29,7 @@ Everything goes to **one place: the Squadra server you configure** with `/squadr
   Recognisable secrets (API keys, tokens, `password=…`) are masked before sending.
 - **Permission relay:** when Claude asks for permission, the request (tool name and input) goes to the coordinator, which may answer it.
 
-**On this machine** it keeps, under `~/.claude/channels/squadra/`: the server URL and token (`.env`, mode 600), each session's identity secret, its access list, and a local socket its hooks use to reach it. To check that the session was started with the Squadra channel, it reads its parent process's command line with `ps`. It does not change Claude Code's settings or permissions.
+**On this machine** it keeps, under `~/.claude/channels/squadra/`: the server URL and the agent token (`.env`, mode 600; it can only register new session names, not open the dashboard), each session's identity secret, its access list, and a local socket its hooks use to reach it. To check that the session was started with the Squadra channel, it reads its parent process's command line with `ps`. It does not change Claude Code's settings or permissions.
 
 ```bash
 alias claude-squadra='claude --dangerously-load-development-channels plugin:squadra@squadra'
