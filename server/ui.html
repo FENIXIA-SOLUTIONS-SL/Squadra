@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Squadra</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%23353637%22%2F%3E%3Cg%20fill%3D%22%23FFFFFF%22%3E%3Cpath%20d%3D%22M32%209l3.4%207.1%207.1%203.4-7.1%203.4L32%2030l-3.4-7.1-7.1-3.4%207.1-3.4z%22%2F%3E%3Ccircle%20cx%3D%2220.5%22%20cy%3D%2237.5%22%20r%3D%225.8%22%2F%3E%3Ccircle%20cx%3D%2243.5%22%20cy%3D%2237.5%22%20r%3D%225.8%22%2F%3E%3Ccircle%20cx%3D%2211.5%22%20cy%3D%2250.5%22%20r%3D%224.6%22%20fill-opacity%3D%22.85%22%2F%3E%3Ccircle%20cx%3D%2252.5%22%20cy%3D%2250.5%22%20r%3D%224.6%22%20fill-opacity%3D%22.85%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<script>(function () { var t = 'dark'; try { t = localStorage.getItem('squadraTheme') || 'dark' } catch (e) {} document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark' })()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -30,8 +31,8 @@
     --r-card: 12px; --r-lg: 8px; --r-ctl: 6px; --r-tag: 4px;
     --pane-h: clamp(340px, calc((100vh - 120px) / 2), 720px);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
+  :root[data-theme="dark"] {
+      color-scheme: dark;
       --bg: #0A0A0A; --panel: #131313; --panel-2: #1A1A1A; --field: #1F1F1F;
       --line: rgba(255,255,255,.10); --line-strong: rgba(255,255,255,.14); --text: #FFFFFF; --muted: rgba(255,255,255,.60);
       --accent: #C9CDD2; --accent-hover: #DDE0E4; --accent-soft: #232931; --accent-ring: rgba(201,205,210,.32); --on-accent: #14181C;
@@ -44,7 +45,6 @@
       --ok: #4ADE80; --warn: #FCD34D; --err: #FF8A80; --info: #60A5FA; --idle: rgba(255,255,255,.32);
       --bubble: #232931; --bubble-in: #1A1A1A;
       --shadow-overlay: 0 24px 48px rgba(0,0,0,.55);
-    }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
@@ -191,6 +191,8 @@
   .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
   .login-card .lang button, .lang button { border: 0; background: none; padding: 1px 7px; cursor: pointer; color: var(--muted); font-size: 11px; width: auto; height: auto; margin: 0; border-radius: 0; font-weight: 500; box-shadow: none; }
   .login-card .lang button::after { display: none; }
+  .prefs { display: inline-flex; gap: 6px; align-items: center; }
+  .lang.theme button { display: inline-grid; place-items: center; padding: 3px 7px; }
   .login-card .lang button.on, .lang button.on { background: var(--panel-2); color: var(--text); font-weight: 650; }
 
   /* actions, menus, dialogs */
@@ -354,7 +356,7 @@
     <input id="tokenInput" type="password" autocomplete="current-password" required>
     <button type="submit" id="loginBtn"></button>
     <div class="login-err" id="loginErr"></div>
-    <div class="foot"><span class="ver"></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></div>
+    <div class="foot"><span class="ver"></span><span class="prefs"><span class="lang theme" role="group" aria-label="Theme"><button type="button" data-theme-set="light" aria-label="Light"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg></button></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></span></div>
   </form>
 </div>
 
@@ -365,7 +367,7 @@
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot"><span class="dot" id="connDot"></span><span id="connText"></span><button id="logoutBtn"></button></div>
-    <div class="side-ver"><span class="ver"></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></div>
+    <div class="side-ver"><span class="ver"></span><span class="prefs"><span class="lang theme" role="group" aria-label="Theme"><button type="button" data-theme-set="light" aria-label="Light"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg></button></span><span class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></span></span></div>
   </aside>
   <div id="main">
     <div class="topbar">
@@ -2208,6 +2210,12 @@
   $('menuBtn').setAttribute('aria-label', T.sessionsMenu)
   $('addHostBtn').title = T.addTitle
   $('addHostBtn').setAttribute('aria-label', T.addTitle)
+  // Theme: dark by default, light on request; saved per browser, no reload.
+  const markTheme = () => { for (const b of document.querySelectorAll('[data-theme-set]')) b.classList.toggle('on', b.dataset.themeSet === document.documentElement.dataset.theme) }
+  for (const b of document.querySelectorAll('[data-theme-set]')) {
+    b.addEventListener('click', () => { document.documentElement.dataset.theme = b.dataset.themeSet; store.set('squadraTheme', b.dataset.themeSet); markTheme() })
+  }
+  markTheme()
   for (const b of document.querySelectorAll('[data-lang]')) {
     b.classList.toggle('on', b.dataset.lang === LANG)
     b.addEventListener('click', () => { store.set('squadraLang', b.dataset.lang); location.reload() })
