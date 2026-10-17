@@ -2,12 +2,12 @@
   <title id="t">Squadra</title>
   <!-- Monochrome: the formation alone, in currentColor (set it with CSS `color`). -->
   <g fill="currentColor">
-    <circle cx="32" cy="19" r="6.4"/>
-    <circle cx="23.5" cy="28.5" r="4.4"/>
-    <circle cx="40.5" cy="28.5" r="4.4"/>
-    <circle cx="16.5" cy="37" r="3.5"/>
-    <circle cx="47.5" cy="37" r="3.5"/>
-    <circle cx="10.5" cy="45" r="2.7"/>
-    <circle cx="53.5" cy="45" r="2.7"/>
+    <path d="M32 11.5l2.6 5.4 5.4 2.6-5.4 2.6L32 27.5l-2.6-5.4-5.4-2.6 5.4-2.6z"/>
+    <circle cx="23" cy="31.5" r="4.4"/>
+    <circle cx="41" cy="31.5" r="4.4"/>
+    <circle cx="15.5" cy="41.5" r="3.6"/>
+    <circle cx="48.5" cy="41.5" r="3.6"/>
+    <circle cx="9.5" cy="50.5" r="2.8"/>
+    <circle cx="54.5" cy="50.5" r="2.8"/>
   </g>
 </svg>

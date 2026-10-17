@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-labelledby="t">
   <title id="t">Squadra</title>
-  <rect width="64" height="64" rx="15" fill="#C15F3C"/>
+  <rect width="64" height="64" rx="15" fill="#353637"/>
   <g fill="#FFFFFF">
-    <circle cx="32" cy="19" r="6.4"/>
-    <circle cx="23.5" cy="28.5" r="4.4" fill-opacity=".95"/>
-    <circle cx="40.5" cy="28.5" r="4.4" fill-opacity=".95"/>
-    <circle cx="16.5" cy="37" r="3.5" fill-opacity=".85"/>
-    <circle cx="47.5" cy="37" r="3.5" fill-opacity=".85"/>
-    <circle cx="10.5" cy="45" r="2.7" fill-opacity=".72"/>
-    <circle cx="53.5" cy="45" r="2.7" fill-opacity=".72"/>
+    <path d="M32 11.5l2.6 5.4 5.4 2.6-5.4 2.6L32 27.5l-2.6-5.4-5.4-2.6 5.4-2.6z"/>
+    <circle cx="23" cy="31.5" r="4.4"/>
+    <circle cx="41" cy="31.5" r="4.4"/>
+    <circle cx="15.5" cy="41.5" r="3.6" fill-opacity=".88"/>
+    <circle cx="48.5" cy="41.5" r="3.6" fill-opacity=".88"/>
+    <circle cx="9.5" cy="50.5" r="2.8" fill-opacity=".72"/>
+    <circle cx="54.5" cy="50.5" r="2.8" fill-opacity=".72"/>
   </g>
-  <!-- The text uses the system UI font; for print or a fixed look, convert it to outlines in a vector editor. -->
-  <text x="80" y="44" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="700" letter-spacing="-0.5" fill="#1F1E1C">Squadra</text>
+  <!-- Inter, as in the dashboard; for print or a fixed look, convert it to outlines in a vector editor. -->
+  <text x="80" y="44" font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="36" font-weight="600" letter-spacing="-0.5" fill="#0F172A">Squadra</text>
 </svg>
