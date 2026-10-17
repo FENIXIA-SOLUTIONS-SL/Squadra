@@ -1261,6 +1261,9 @@ function sanitizeHostInfo(info) {
     folders: (Array.isArray(info.folders) ? info.folders : []).slice(0, 50).map(f => str(f, 500)).filter(Boolean),
     max_sessions: Number.isInteger(info.max_sessions) ? info.max_sessions : null,
     allow_input: info.allow_input !== false,
+    plugin: info.plugin && typeof info.plugin === 'object'
+      ? { installed: info.plugin.installed === true, enabled: info.plugin.enabled === true, version: str(info.plugin.version, 40) }
+      : null,
     terminals,
   }
 }

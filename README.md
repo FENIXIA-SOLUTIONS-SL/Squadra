@@ -196,13 +196,33 @@ Sessions always connect *out* to the server, so their machines open no ports.
 
 ### 2. Install the plugin (once per machine)
 
-Inside `claude`:
+On every machine where a coordinator or a worker will run. Inside `claude`:
 
 ```
-/plugin marketplace add roke22/Squadra           # or a local path to this repo
+/plugin marketplace add roke22/Squadra
 /plugin install squadra@squadra
-/squadra:configure http://127.0.0.1:7787 <server-token>
 ```
+
+Or from the terminal (handy on servers, in WSL or in scripts):
+
+```bash
+claude plugin marketplace add roke22/Squadra
+claude plugin install squadra@squadra
+```
+
+Then point it at your server, with the command the server printed at startup:
+
+```
+/squadra:configure https://squadra.example.com <server-token>
+```
+
+- **Use the address the other machines reach** the server at: `http://127.0.0.1:7787` only works on the server's own machine.
+- **Start Claude Code again afterwards.** The plugin reads its configuration when a session starts, and the Squadra channel has to be enabled at launch anyway (next step).
+- **Machines added from the dashboard** get the plugin installed and configured by themselves when you enroll them.
+- **Claude Code runs the plugin with `node`,** so Node 22 must be on the `PATH` Claude Code sees.
+- To use a local copy of this repository instead, pass its path to `marketplace add`.
+
+**Updating:** `claude plugin marketplace update squadra && claude plugin update squadra@squadra`, then restart the sessions.
 
 ### 3. Launch sessions and log in
 
@@ -245,7 +265,7 @@ Instead of starting `claude` by hand in each terminal, let the dashboard do it o
      && node squadra-host.mjs enroll https://squadra.example.com ABCD-2345
    ```
 
-   It trades the code for the machine's own credential, allows the current folder, configures the Squadra plugin there if it isn't yet, and shows up as connected. Keep it running with `node ~/.config/squadra-host/squadra-host.mjs service` (prints a systemd unit on Linux, a launchd agent on macOS).
+   It trades the code for the machine's own credential, allows the current folder, **installs the Squadra plugin in Claude Code** and points it at this server if they aren't yet, and shows up as connected. The machine needs Claude Code installed first; add `--no-plugin` to skip the plugin. Keep it running with `node ~/.config/squadra-host/squadra-host.mjs service` (prints a systemd unit on Linux, a launchd agent on macOS).
 2. **Open a session.** **+ New session**: machine, role, name, folder (one of the machine's allowed folders, plus an optional subfolder), when to auto-compact (600K tokens by default, recommended for 1M-context models) and whether to continue the last conversation. It starts `claude` with the Squadra channel in tmux and logs in by itself.
 3. **Use its terminal.** The session opens in a live web terminal. On first start, accept the development-channels prompt and, if asked, trust the folder and `/login`. From then on you can watch it or type to it from any browser; the chat view and the mosaic keep working as before.
 
@@ -255,6 +275,7 @@ On the machine:
 |---|---|
 | `node squadra-host.mjs folders add <path>` | Allow sessions in another folder (also `folders remove`, `folders`) |
 | `node squadra-host.mjs status` | Settings and open sessions |
+| `node squadra-host.mjs plugin` | Install the Squadra plugin, or update it (then restart open sessions) |
 | `tmux -L squadra attach -t sq-<name>` | Attach to a session locally |
 
 The machine's rules live in `~/.config/squadra-host/settings.json`: `folders`, `max_sessions` (8), `allow_input` (set it to `false` to only watch from the browser) and `claude_command`. **Disconnect** in the machine's ⋯ menu revokes its credential.

@@ -257,6 +257,7 @@
   .host-head .m { color: var(--muted); font-size: 12.5px; }
   .host-head .acts { margin-left: auto; display: flex; gap: 6px; align-items: center; }
   .host-meta { padding: 0 14px 10px; color: var(--muted); font-size: 12.5px; display: flex; gap: 6px 14px; flex-wrap: wrap; }
+  .plugin-missing { color: var(--err); font-weight: 600; }
   .host-terms { border-top: 1px solid var(--line); }
   .term-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .term-row:first-child { border-top: 0; }
@@ -495,6 +496,8 @@
       typingOn: 'typing from here: allowed',
       typingOff: 'watch only (typing turned off on the machine)',
       noTerminals: 'No sessions open on this machine.',
+      pluginOk: v => `Squadra plugin ${v ? `v${v}` : 'installed'}`,
+      pluginMissing: missing => `⚠ Squadra plugin ${missing ? 'not installed' : 'disabled'}: run <code>squadra-host plugin</code> on the machine`,
       terminal: '⌨ Terminal',
       chat: 'Chat',
       closeSession: 'Close session',
@@ -508,10 +511,10 @@
       save: 'Save',
       name: 'Name',
       addTitle: 'Add a machine',
-      addIntro: 'The machine needs <b>Node 22+</b>, <b>tmux</b> and <b>Claude Code</b> with the Squadra plugin installed. You will get a one-time command to run there.',
+      addIntro: 'The machine needs <b>Node 22+</b>, <b>tmux</b> and <b>Claude Code</b>. You will get a one-time command to run there; it also installs the Squadra plugin in Claude Code.',
       machineName: 'Name for the machine (optional)',
       machineNameHint: 'Defaults to its hostname.',
-      configurePlugin: 'Also configure the Squadra plugin on that machine (server address and token), if it is not configured yet',
+      configurePlugin: 'Also give the Squadra plugin on that machine this server\'s address and token, if it is not configured yet',
       generate: 'Generate command',
       runThis: 'Run this on the machine, in the folder where sessions should be allowed to open:',
       copy: 'Copy',
@@ -678,6 +681,8 @@
       typingOn: 'escribir desde aquí: permitido',
       typingOff: 'solo ver (escribir está desactivado en la máquina)',
       noTerminals: 'No hay sesiones abiertas en esta máquina.',
+      pluginOk: v => `Plugin de Squadra ${v ? `v${v}` : 'instalado'}`,
+      pluginMissing: missing => `⚠ Plugin de Squadra ${missing ? 'sin instalar' : 'desactivado'}: ejecuta <code>squadra-host plugin</code> en la máquina`,
       terminal: '⌨ Terminal',
       chat: 'Chat',
       closeSession: 'Cerrar sesión',
@@ -691,10 +696,10 @@
       save: 'Guardar',
       name: 'Nombre',
       addTitle: 'Añadir una máquina',
-      addIntro: 'La máquina necesita <b>Node 22+</b>, <b>tmux</b> y <b>Claude Code</b> con el plugin de Squadra instalado. Obtendrás un comando de un solo uso para ejecutar allí.',
+      addIntro: 'La máquina necesita <b>Node 22+</b>, <b>tmux</b> y <b>Claude Code</b>. Obtendrás un comando de un solo uso para ejecutar allí; también instala el plugin de Squadra en Claude Code.',
       machineName: 'Nombre de la máquina (opcional)',
       machineNameHint: 'Por defecto, su hostname.',
-      configurePlugin: 'Configurar también el plugin de Squadra en esa máquina (dirección y token del servidor), si aún no lo está',
+      configurePlugin: 'Dar también al plugin de Squadra de esa máquina la dirección y el token de este servidor, si aún no está configurado',
       generate: 'Generar comando',
       runThis: 'Ejecuta esto en la máquina, en la carpeta donde se podrán abrir sesiones:',
       copy: 'Copiar',
@@ -1609,7 +1614,7 @@
         <div class="host-head"><span class="dot ${h.online ? 'ok' : ''}"></span><span class="n">${esc(h.name)}</span>
           <span class="m">${h.online ? T.hostOnline : T.hostOffline(h.last_seen_at ? dur(now() - h.last_seen_at) : '—')}${hostLine(h) ? ` · ${esc(hostLine(h))}` : ''}</span>
           <span class="acts">${h.online ? `<button class="btn" data-hact="new" data-h="${esc(h.id)}">${T.newSession}</button>` : ''}<button class="more" data-hmenu="${esc(h.id)}" aria-label="${esc(T.actions(h.name))}">⋯</button></span></div>
-        <div class="host-meta"><span>${T.folders}: ${i.folders?.length ? i.folders.map(f => `<code>${esc(f)}</code>`).join(' ') : T.noFolders}</span>${i.max_sessions ? `<span>${T.maxSessions(i.max_sessions)}</span>` : ''}<span>${i.allow_input === false ? T.typingOff : T.typingOn}</span></div>
+        <div class="host-meta">${i.plugin ? (i.plugin.installed && i.plugin.enabled ? `<span>${T.pluginOk(esc(i.plugin.version ?? ''))}</span>` : `<span class="plugin-missing">${T.pluginMissing(!i.plugin.installed)}</span>`) : ''}<span>${T.folders}: ${i.folders?.length ? i.folders.map(f => `<code>${esc(f)}</code>`).join(' ') : T.noFolders}</span>${i.max_sessions ? `<span>${T.maxSessions(i.max_sessions)}</span>` : ''}<span>${i.allow_input === false ? T.typingOff : T.typingOn}</span></div>
         <div class="host-terms">${rows || `<div class="host-empty">${T.noTerminals}</div>`}</div>
       </div>`
     }).join('')}</div>`

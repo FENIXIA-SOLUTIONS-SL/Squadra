@@ -264,6 +264,9 @@ El servidor sirve un panel en su misma dirección: `http://127.0.0.1:7787/`, o `
 1. El panel pide `POST /api/hosts/enroll {name, configure_plugin}`. El servidor genera un código `XXXX-XXXX` de un solo uso, válido 15 minutos y guardado como hash, y devuelve el comando `curl … && node squadra-host.mjs enroll <url> <código>`.
 2. En la máquina, `enroll` llama a `POST /host/enroll {code, info}` (público, limitado a 10 intentos por minuto e IP). Recibe `{id, secret}` (`sh_…`) y, si se marcó, la URL y el token del servidor para escribir `~/.claude/channels/squadra/.env` cuando aún no existe.
 3. Guarda la credencial en `credentials.json` (600), crea `settings.json` con la carpeta actual como permitida, se copia a `~/.config/squadra-host/` y se conecta.
+4. Instala el plugin en Claude Code si falta, con `claude plugin marketplace add roke22/Squadra` y `claude plugin install squadra@squadra`; lo activa si está desactivado. El origen está fijado en el código del host: el servidor nunca decide qué se instala. Se salta con `--no-plugin`, y `squadra-host plugin` lo instala o actualiza después.
+
+**Plugin:** el host consulta `claude plugin list --json` al arrancar, cada 5 minutos y antes de abrir cada sesión. Lo informa al panel en `info.plugin` (`installed`, `enabled`, `version`), y el panel avisa en la tarjeta de la máquina si falta. Sin el plugin instalado y activo, la máquina rechaza abrir sesiones: arrancarían, pero nunca entrarían en Squadra.
 
 **Conexión:** WebSocket propio (`server/ws.js`, RFC 6455 mínimo) en `/host/connect`. El host se presenta con `{t:'hello', secret, info}`, y una conexión nueva sustituye a la anterior. Si se revoca, el servidor cierra con el código 4001 y el host termina.
 

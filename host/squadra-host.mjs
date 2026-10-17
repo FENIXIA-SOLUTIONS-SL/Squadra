@@ -171,9 +171,58 @@ export function validateSpec(spec, settings, current) {
   return { name, role, coordinator, folder: real, compact_window: compact, resume: spec.resume === true }
 }
 
+// --- the Squadra plugin on this machine ----------------------------------------------
+//
+// Sessions need the plugin installed in this machine's Claude Code. Where it
+// comes from is fixed here on purpose: the server never decides what gets
+// installed on this machine.
+
+const PLUGIN_ID = 'squadra@squadra'
+const PLUGIN_MARKETPLACE = 'roke22/Squadra'
+const PLUGIN_COMMANDS = `claude plugin marketplace add ${PLUGIN_MARKETPLACE} && claude plugin install ${PLUGIN_ID}`
+let PLUGIN = null // { installed, version, enabled }, or null when it can't be told
+
+async function pluginStatus(cmd = loadSettings().claude_command) {
+  try {
+    const { stdout } = await run(cmd, ['plugin', 'list', '--json'], { timeout: 30_000 })
+    const p = JSON.parse(stdout).find(x => x?.id === PLUGIN_ID)
+    return p ? { installed: true, version: typeof p.version === 'string' ? p.version : null, enabled: p.enabled !== false } : { installed: false, version: null, enabled: false }
+  } catch {
+    return null // Claude Code missing, or too old to list plugins as JSON
+  }
+}
+
+// Install the plugin if it's missing (or enable it), or update it if it's there.
+async function ensurePlugin({ update = false } = {}) {
+  const cmd = loadSettings().claude_command
+  const opts = { timeout: 180_000 }
+  let st = await pluginStatus(cmd)
+  if (st === null) throw new Error(`cannot run "${cmd} plugin list": install Claude Code (or set claude_command in ${SETTINGS_FILE})`)
+  if (!st.installed) {
+    // "add" fails if the marketplace is already there: the install decides.
+    try { await run(cmd, ['plugin', 'marketplace', 'add', PLUGIN_MARKETPLACE], opts) } catch {}
+    await run(cmd, ['plugin', 'install', PLUGIN_ID], opts)
+  } else if (update) {
+    await run(cmd, ['plugin', 'marketplace', 'update', 'squadra'], opts)
+    await run(cmd, ['plugin', 'update', PLUGIN_ID], opts)
+  }
+  st = await pluginStatus(cmd)
+  if (st?.installed && !st.enabled) { await run(cmd, ['plugin', 'enable', PLUGIN_ID], opts); st = await pluginStatus(cmd) }
+  if (!st?.installed) throw new Error('the plugin did not install')
+  PLUGIN = st
+  return st
+}
+
 async function openTerminal(spec) {
   const settings = loadSettings()
   const s = validateSpec(spec, settings, await listTerminals())
+  // Without the plugin the session would start, but never join Squadra.
+  // Checked every time (opening a session is rare): it may have been removed.
+  const st = await pluginStatus(settings.claude_command)
+  if (st) PLUGIN = st
+  if (st && (!st.installed || !st.enabled)) {
+    throw new Error(`the Squadra plugin is ${PLUGIN.installed ? 'disabled' : 'not installed'} in Claude Code on this machine. Run "node ${INSTALLED_SCRIPT} plugin" there, or: ${PLUGIN_COMMANDS}`)
+  }
   const tname = PREFIX + s.name
   const env = { SQUADRA_NAME: s.name, SQUADRA_ROLE: s.role }
   if (s.coordinator) env.SQUADRA_COORDINATOR = s.coordinator
@@ -329,6 +378,7 @@ async function hostInfo() {
     node: process.version,
     tmux: tv?.text ?? null,
     claude: CLAUDE_VERSION,
+    plugin: PLUGIN,
     version: VERSION,
     folders: settings.folders,
     max_sessions: settings.max_sessions,
@@ -356,7 +406,8 @@ async function connect(creds) {
   }
 
   const handlers = {
-    async open(m) { const r = await openTerminal(m.spec); await pushInfo(); return r },
+    // Push the info either way: a refusal may have found the plugin missing.
+    async open(m) { try { return await openTerminal(m.spec) } finally { await pushInfo() } },
     async kill(m) { const r = await killTerminal(m.term); await pushInfo(); return r },
   }
 
@@ -425,10 +476,13 @@ async function connect(creds) {
 
 const USAGE = `Usage:
   node squadra-host.mjs enroll <server-url> <code>   Join this machine to a Squadra server and start
-                                                     (the dashboard shows this command in Hosts → Add)
+                                                     (the dashboard shows this command in Hosts → Add).
+                                                     Also installs the Squadra plugin in Claude Code if
+                                                     it's missing (--no-plugin to skip)
   node squadra-host.mjs [run]                        Connect with the saved credential
   node squadra-host.mjs folders [add|remove <path>]  Folders where sessions may be opened
   node squadra-host.mjs status                       Show this machine's settings and sessions
+  node squadra-host.mjs plugin                       Install the Squadra plugin in Claude Code, or update it
   node squadra-host.mjs service                      Print a service to keep it running (systemd on Linux, launchd on macOS)
   node squadra-host.mjs forget                       Delete the saved credential
 
@@ -439,7 +493,7 @@ Settings: ${SETTINGS_FILE}
   claude_command the Claude Code executable (default "claude")
 `
 
-async function enroll(server, code) {
+async function enroll(server, code, { plugin = true } = {}) {
   if (!server || !code) die(`enroll needs the server URL and a code.\n\n${USAGE}`, 2)
   server = server.replace(/\/+$/, '')
   if (!/^https?:\/\//.test(server)) die('the server URL must start with http:// or https://', 2)
@@ -467,6 +521,16 @@ async function enroll(server, code) {
     writeFileSync(pluginEnv, `SQUADRA_URL=${j.result.plugin.url}\nSQUADRA_SERVER_TOKEN=${j.result.plugin.token}\n`, { mode: 0o600 })
     log(`Squadra plugin configured for ${j.result.plugin.url} (${pluginEnv})`)
   }
+  // Install the plugin itself, so sessions opened from the dashboard work unattended.
+  if (plugin && info.claude) {
+    try {
+      const before = await pluginStatus()
+      const st = await ensurePlugin()
+      log(before?.installed && before.enabled ? `Squadra plugin ${st.version ?? ''} already installed in Claude Code` : `Squadra plugin ${st.version ?? ''} installed in Claude Code`)
+    } catch (err) {
+      log(`⚠️  could not install the Squadra plugin (${err.message.split('\n')[0]}). Install it with: ${PLUGIN_COMMANDS}`)
+    }
+  }
   const s = loadSettings()
   process.stderr.write(`\nsquadra-host: this machine is now "${j.result.name}" on ${server}.
   Sessions may be opened in: ${s.folders.join(', ') || '(none)'}
@@ -475,7 +539,7 @@ async function enroll(server, code) {
 
 `)
   if (!info.tmux) log(`⚠️  tmux is not installed: install it (${TMUX_INSTALL}) before opening sessions.`)
-  if (!info.claude) log('⚠️  Claude Code was not found ("claude" is not on the PATH). Install it, and the Squadra plugin, before opening sessions.')
+  if (!info.claude) log(`⚠️  Claude Code was not found ("claude" is not on the PATH). Install it, then run: node ${INSTALLED_SCRIPT} plugin`)
 }
 
 function folders(action, path) {
@@ -558,11 +622,22 @@ async function main() {
   const tv = await tmuxVersion()
   if (tv && tv.major < 3) die(`${tv.text} is too old: squadra-host needs tmux 3.0 or newer`)
   CLAUDE_VERSION = await claudeVersion(loadSettings().claude_command)
-  if (cmd === 'enroll') await enroll(rest[0], rest[1])
+  if (cmd === 'plugin') {
+    try { const st = await ensurePlugin({ update: true }); return log(`Squadra plugin ${st.version ?? ''} is installed and up to date. Restart open sessions to use a new version.`) }
+    catch (err) { die(`${err.message.split('\n')[0]}\nInstall it by hand with: ${PLUGIN_COMMANDS}`) }
+  }
+  if (cmd === 'enroll') {
+    const args = rest.filter(a => !a.startsWith('--'))
+    await enroll(args[0], args[1], { plugin: !rest.includes('--no-plugin') })
+  }
   else if (cmd !== 'run') die(`unknown command "${cmd}"\n\n${USAGE}`, 2)
   const creds = readJson(CREDENTIALS_FILE, null)
   if (!creds?.server || !creds?.secret) die(`this machine is not enrolled yet. In the dashboard, open Hosts → Add and run the command it shows.\n\n${USAGE}`, 2)
   if (!tv) log(`⚠️  tmux is not installed: sessions cannot be opened until it is (${TMUX_INSTALL}).`)
+  PLUGIN = await pluginStatus()
+  if (PLUGIN && !PLUGIN.installed) log(`⚠️  the Squadra plugin is not installed in Claude Code: sessions cannot be opened until it is. Run: node ${INSTALLED_SCRIPT} plugin`)
+  // Keep what the dashboard shows about the plugin current (installed or updated by hand).
+  setInterval(async () => { const st = await pluginStatus(); if (st) PLUGIN = st }, 5 * 60_000).unref()
   await connect(creds)
 }
 

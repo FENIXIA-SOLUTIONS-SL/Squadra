@@ -7,7 +7,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, chmodSync, existsSync, realpathSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, chmodSync, existsSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -49,13 +49,24 @@ const claudeDir = join(work, 'claude')
 const allowed = join(work, 'projects')
 const outside = join(work, 'elsewhere')
 const fakeClaude = join(work, 'fake-claude.sh')
+const pluginState = join(work, 'plugin-installed')
+const pluginCalls = join(work, 'plugin-calls')
 let hostStderr = ''
 
 before(async () => {
   if (!hasTmux) return
   for (const d of [dataDir, hostDir, allowed, join(allowed, 'api'), outside, join(allowed, 'odd#dir')]) mkdirSync(d, { recursive: true })
+  // It also plays "claude plugin …": list/install/enable, with the state in a file.
   writeFileSync(fakeClaude, `#!/bin/sh
 if [ "$1" = "--version" ]; then echo "9.9.9 (Claude Code)"; exit 0; fi
+if [ "$1" = "plugin" ]; then
+  echo "$*" >> "${pluginCalls}"
+  case "$2" in
+    list) if [ -f "${pluginState}" ]; then echo '[{"id":"squadra@squadra","version":"0.0.1","enabled":true}]'; else echo '[]'; fi ;;
+    install) touch "${pluginState}" ;;
+  esac
+  exit 0
+fi
 echo "ARGS: $*"
 echo "ENV: $SQUADRA_NAME/$SQUADRA_ROLE/$SQUADRA_COORDINATOR/$CLAUDE_CODE_AUTO_COMPACT_WINDOW"
 echo "PWD: $(pwd)"
@@ -124,6 +135,12 @@ test('a machine enrolls with a one-time code and connects', { skip: !hasTmux && 
   assert.equal(h.info.claude, '9.9.9 (Claude Code)')
   assert.deepEqual(h.info.folders, [allowed])
   assert.equal(h.info.max_sessions, 2)
+
+  // The Squadra plugin was installed in Claude Code, from its fixed marketplace.
+  const calls = readFileSync(pluginCalls, 'utf8')
+  assert.match(calls, /plugin marketplace add roke22\/Squadra/)
+  assert.match(calls, /plugin install squadra@squadra/)
+  assert.deepEqual(h.info.plugin, { installed: true, enabled: true, version: '0.0.1' })
 
   // Credential saved with private permissions; the plugin configured.
   const creds = JSON.parse(readFileSync(join(hostDir, 'credentials.json'), 'utf8'))
@@ -238,6 +255,18 @@ test('the machine limit and typing switch are the machine\'s own', { skip: !hasT
   v.ws.close()
   writeFileSync(join(hostDir, 'settings.json'), JSON.stringify(settings))
   for (const name of ['a1', 'a2']) await dash('terminals/kill', { host: hostId, term: name })
+})
+
+test('without the Squadra plugin, the machine refuses to open sessions', { skip: !hasTmux && 'tmux not installed' }, async () => {
+  rmSync(pluginState)
+  const r = await dash('terminals/open', { host: hostId, spec: { name: 'np1', role: 'worker', folder: allowed } })
+  assert.equal(r.ok, false)
+  assert.match(r.description, /Squadra plugin is not installed/)
+  await waitFor(async () => (await dash('hosts')).result.find(x => x.id === hostId).info.plugin?.installed === false, { what: 'plugin reported missing' })
+  writeFileSync(pluginState, '')
+  const ok = await dash('terminals/open', { host: hostId, spec: { name: 'np1', role: 'worker', folder: allowed } })
+  assert.ok(ok.ok, ok.description)
+  await dash('terminals/kill', { host: hostId, term: 'np1' })
 })
 
 test('disconnecting a machine revokes it and stops squadra-host there', { skip: !hasTmux && 'tmux not installed' }, async () => {
